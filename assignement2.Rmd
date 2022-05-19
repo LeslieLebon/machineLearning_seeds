@@ -5,6 +5,12 @@ date: "13 5 2022"
 output: pdf_document
 ---
 
+---
+Classify the seed types using 2 classifying methods:
+
+
+-Decision trees
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
