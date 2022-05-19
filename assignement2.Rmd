@@ -1,11 +1,8 @@
 ---
 title: "assignement2"
 author: "Lilach Herzog & Leslie Cohen"
-date: "9 5 2022"
+date: "13 5 2022"
 output: pdf_document
-editor_options: 
-  markdown: 
-    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
@@ -14,15 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-HIIII!!!!!!! what???
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-This is an R Markdown document. Markdown is a simple formatting syntax
-for authoring HTML, PDF, and MS Word documents. For more details on
-using R Markdown see <http://rmarkdown.rstudio.com>.
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-When you click the **Knit** button a document will be generated that
-includes both content as well as the output of any embedded R code
-chunks within the document. You can embed an R code chunk like this:
+
 
 Set up out environment and data:
 
@@ -35,139 +28,136 @@ seeds <- read.csv("seeds.csv")
 
 # Consider setting a seed for reproducible results
 
-#WHAT THAT ???
+#to initialize a pseudorandom number generator. 
 set.seed(1234)
 ```
 
-Quick look at the data (can you guess which will be most important?) :
+
+The aim: classify the seeds type.
+There are 3 types of seeds: 1,2,3.
+Quick look at the data to try to find which parameter is important :
 
 ```{r}
 str(seeds)
 ```
 
-Convert the class ("default") to a factor, as it is required by the C50
-package.
+Convert the class ("type") to a factor, as it is required by the C50 package.
 
 ```{r}
-# convert credit from character variable to factor
-credit$default<-as.factor(credit$default)
+# convert type from int variable to factor
+seeds$Type<-as.factor(seeds$Type)
 ```
+
 
 ```{r}
-# look at table of savings/checking balance
-table(credit$savings_balance)
-table(credit$checking_balance)
-```
+#gives the number of occurence of each lengh / width/perimeter etc and order them from the lower to the higher kernel/perimeter etc
+#build a contingency table of the counts at each combination of factor levels
 
-The checking and savings account balance may prove to be important
-predictors of loan default status.
+#I dont understand in what it is usefull to classify seed types.
+
+table(seeds$Kernel.Length) #majority of  1
+table(seeds$Kernel.Width) #majority of  1
+table(seeds$Kernel.Groove) #mix of  1 to 4
+table(seeds$Perimeter) #majority of 1
+table(seeds$Area) #majority of 1
+table(seeds$Compactness) #mix of 1 and 2
+table(seeds$Asymmetry.Coeff) #majority of 1
+
+```
+The only "repetitve variable" is kernel groove.
+
 
 ```{r}
-# look at summary of loan amount and duration
-summary(credit$amount)
-summary(credit$months_loan_duration)
+# look at summary of the different kernel variables 
+summary(seeds$Kernel.Groove)
+summary(seeds$Kernel.Length)
+summary(seeds$Kernel.Width)
+
 ```
+the kernel groove varies between 4.5 and 6.55, the kernel lenght between 4.89 and 6.67
+and the kernel width of seeds varies between 2.63 and 4.033. 
 
-The loan amounts ranged from 250 DM to 18,424 DM across terms of 4 to 72
-months with a median duration of 18 months and an amount of 2,320 DM.
-
-The 'default' vector indicates whether the loan applicant was unable to
-meet the agreed payment terms and went into default. A total of 30
-percent of the loans in this dataset went into default:
+How can we associate that to the different types of seeds ??
 
 ```{r}
-table(credit$default)
+table(seeds$Type)
 ```
+There are 66 type 1, 68 type 2 and 65 type 3.????
 
 Lets split into training and test sets:
 
 ```{r}
-# sample 800 observations out of the total 1000
-train_sample <- sample(1000, 800)
+#  0.8% of the observations observations out of the total 199
+train_sample <- sample(199, 159)
 
-str(train_sample) # the resulting train_sample object is a vector of 800 random integers
+str(train_sample) # the resulting train_sample object is a vector of 159 random integers
 
 # split into train/test
-credit_train <- credit[train_sample, ]
-credit_test <- credit[-train_sample, ]
+seeds_train <- seeds[train_sample, ]
+seeds_test <- seeds[-train_sample, ]
 
 # check that we got about 30% defaulted loans in each dataset:
-prop.table(table(credit_train$default))
-prop.table(table(credit_test$default))
+prop.table(table(seeds_train$Type))
+prop.table(table(seeds_test$Type))
 ```
 
-The 17th column of the dataset is the default class variable, so we need
-to exclude it from the training data frame, but supply it as the target
-factor (label) vector for classification:
+The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, but supply it as the target factor (label) vector for classification:
 
 ```{r}
-# apply model in training data (17th column is the label to be predicted)
-credit_model <- C5.0(credit_train[-17], credit_train$default)
+# apply model in training data (8th column is the label to be predicted)
+seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 
-credit_model
+seeds_model
 ```
 
-The preceding text shows some simple facts about the tree, including the
-function call that generated it, the number of features (labeled
-predictors), and examples (labeled samples) used to grow the tree. Also
-listed is the tree size of 59, which indicates that the tree is 59
-decisions deep - quite a bit larger than the example trees we've
-considered so far!
+The preceding text shows some simple facts about the tree, including the function
+call that generated it, the number of features (labeled predictors), and examples
+(labeled samples) used to grow the tree. Also listed is the tree size of 7, which
+indicates that the tree is 7 decisions deep 
 
-Next we'll look at the summary of the model. Note that the first three
-lines could be represented in plain language as:
+Next we'll look at the summary of the model. 
+Note that the first three lines could be represented in plain language as:
 
-1.  If the checking account balance is unknown or greater than 200 DM,
-    and other_credit is none/store then classify as "not likely to
-    default."
-2.  Otherwise, the checking account balance is less than zero DM or
-    between one and 200 DM, and the credit history is perfect or very
-    good, and housing is rent or other, then classify as "likely to
-    default."
+There are only 2 possibilities of the kernel groove is greater than 5.528,
+Whe kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
+In this case, there is only one possibility to Kernel.Groove <= 4.783, otherwise, one possibility of Kernel.Groove > 4.783 , otherwise, Kernel.Groove<=4.783 and one possibility for Asymmetry.Coeff <= 1.502, otherwise, Asymmetry.Coeff> 1.502 and3 possibilities to kernel.Groove>4.914, otherwise, kernel.groove<=13.914 and 3 possibilities for perimeter<=13.47 and 1 possibility foe Perimeter>13.47.
 
 ```{r}
-summary(credit_model)
+summary(seeds_model)
 ```
 
-The numbers in parentheses indicate the number of examples meeting the
-criteria for that decision, and the number incorrectly classified by the
-decision. For instance, on the first line, 326/34 indicates that of the
-326 examples reaching the decision, 34 were incorrectly classified as
-not likely to default. In other words, 34 applicants actually defaulted,
-in spite of the model's prediction.
+The numbers in parentheses indicate the number of examples meeting the criteria for
+that decision, and the number incorrectly classified by the decision. 
+For instance, on the first line, 326/34 indicates that of the 326 examples reaching the decision, 34 were incorrectly classified as not likely to default. In other words, 34 applicants actually defaulted, in spite of the model's prediction.??????
+
+???? HELP to inderstand ????
 
 As we now know, it is very important to evaluate our model performance:
 
 ```{r}
 # apply model on test data
-credit_pred <- predict(credit_model, credit_test)
+seeds_pred <- predict(seeds_model, seeds_test)
 
-CrossTable(credit_test$default, credit_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
+CrossTable(seeds_test$Type, seeds_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual type', 'predicted type'))
 ```
-
+?????????????????????????????????????
 The performance here is somewhat worse than its performance on the
-training data, but not unexpected, given that a model's performance is
-often worse on unseen data. Also note that there are relatively many
-mistakes where the model predicted not a default, when in practice the
-loaner did default. Unfortunately, this type of error is a potentially
-costly mistake, as the bank loses money on each default. Let's see if we
-can improve the result with a bit more effort.
-
+training data, but not unexpected, given that a model's performance is often worse
+on unseen data. Also note that there are relatively many mistakes where the model predicted not a default, when in practice the loaner did default. 
+Unfortunately, this type of error is a potentially costly mistake, as the bank loses money on each default. 
+Let's see if we can improve the result with a bit more effort.
+????????????????????????????
 ### Adaptive Boosting
 
-So, our model is not that great. Let's try and improve it next. C5.0
-includes a feature called adaptive boosting. This is a process in which
-many decision trees are built and the trees vote on the best class for
-each example.
+So, our model is not that great. Let's try and improve it next. C5.0 includes a feature called adaptive boosting. This is a process in which many decision trees are built and the trees vote on the best class for each example. 
 
-The C5.0() function makes it easy to add boosting to our C5.0 decision
-tree. We simply need to add an additional trials parameter indicating
-the number of separate decision trees to use in the boosted team. The
-trials parameter sets an upper limit; the algorithm will stop adding
-trees if it recognizes that additional trials do not seem to be
-improving the accuracy. We'll start with 10 trials, a number that has
-become the de facto standard, as research suggests that this reduces
-error rates on test data by about 25 percent:
+The C5.0() function makes it easy to add boosting to our C5.0 decision tree. We
+simply need to add an additional trials parameter indicating the number of
+separate decision trees to use in the boosted team. The trials parameter sets an
+upper limit; the algorithm will stop adding trees if it recognizes that additional 
+trials do not seem to be improving the accuracy. 
+We'll start with 10 trials, a number that has become the de facto standard, as research 
+suggests that this reduces error rates on test data by about 25 percent:
 
 ```{r}
 # boosting with 10 trials (on training)
@@ -178,11 +168,10 @@ credit_boost10
 summary(credit_boost10)
 ```
 
-The classifier made 25 mistakes on 800 training examples for an error
-rate of 3.1% percent. This is quite an improvement over the previous
-training error rate before adding boosting! However, it remains to be
-seen whether we see a similar improvement on the test data. Let's take a
-look:
+The classifier made 25 mistakes on 800 training examples for an error rate of
+3.1% percent. This is quite an improvement over the previous training error rate
+before adding boosting! However, it remains to be seen whether we see
+a similar improvement on the test data. Let's take a look:
 
 ```{r}
 # boosting on test data
@@ -193,18 +182,12 @@ prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual default', 'predicted default'))
 ```
 
-The model is still not doing well at predicting defaults, which may be a
-result of our relatively small training dataset, or it may just be a
-very difficult problem to solve.
+The model is still not doing well at predicting defaults, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
 
-Next, lets proceed to fine-tune our algorithm, using a cost matrix. The
-C5.0 algorithm allows us to assign a penalty to different types of
-errors, in order to discourage a tree from making more costly mistakes.
-The penalties are designated in a cost matrix, which specifies how much
-costlier each error is, relative to any other prediction.
+Next, lets proceed to fine-tune our algorithm, using a cost matrix. 
+The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
 
-First, we'll create a default 2x2 matrix, to later be filled with our
-cost values:
+First, we'll create a default 2x2 matrix, to later be filled with our cost values:
 
 ```{r}
 matrix_dimensions <- list(c("no", "yes"), c("no", "yes"))
@@ -213,8 +196,8 @@ names(matrix_dimensions) <- c("predicted", "actual")
 matrix_dimensions
 ```
 
-Suppose we believe that a loan default costs the bank four times as much
-as a missed opportunity. Our penalty values could then be defined as:
+Suppose we believe that a loan default costs the bank four times as much as a missed opportunity. 
+Our penalty values could then be defined as:
 
 ```{r}
 error_cost <- matrix(c(0, 1, 4, 0), nrow = 2, dimnames = matrix_dimensions)
@@ -234,15 +217,10 @@ credit_cost_pred <- predict(credit_cost, credit_test)
 CrossTable(credit_test$default, credit_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
 ```
 
-Compare these results to the boosted model; this version makes more
-mistakes overall, but the types of mistakes are very different. Where
-the previous models incorrectly classified a small number of defaults
-correctly, our weighted model has does much better in this regard. This
-trade resulting in a reduction of false negatives at the expense of
-increasing false positives may be acceptable if our cost estimates were
-accurate.
+Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
 
-To create our decision trees in this practice we used the C5.0 package.
-There is another package called "party" which has the 'ctree' function
-which also generates decision trees. You can read about it here:
-<https://ademos.people.uic.edu/Chapter24.html>.
+
+To create our decision trees in this practice we used the C5.0 package. 
+There is another package called "party" which has the 'ctree' function which
+also generates decision trees. You can read about it here: https://ademos.people.uic.edu/Chapter24.html.
+
