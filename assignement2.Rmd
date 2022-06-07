@@ -15,12 +15,6 @@ Classify the seed types using 2 classifying methods:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 
 
 Set up out environment and data:
@@ -34,7 +28,7 @@ seeds <- read.csv("seeds.csv")
 
 # Consider setting a seed for reproducible results
 
-#to initialize a pseudorandom number generator. 
+#to initialize a pseudo random number generator. 
 set.seed(1234)
 ```
 
@@ -59,8 +53,6 @@ seeds$Type<-as.factor(seeds$Type)
 #gives the number of occurence of each lengh / width/perimeter etc and order them from the lower to the higher kernel/perimeter etc
 #build a contingency table of the counts at each combination of factor levels
 
-#I dont understand in what it is usefull to classify seed types.
-
 table(seeds$Kernel.Length) #majority of  1
 table(seeds$Kernel.Width) #majority of  1
 table(seeds$Kernel.Groove) #mix of  1 to 4
@@ -70,7 +62,7 @@ table(seeds$Compactness) #mix of 1 and 2
 table(seeds$Asymmetry.Coeff) #majority of 1
 
 ```
-The only "repetitve variable" is kernel groove.
+The only "repetitive variable" is kernel groove.
 
 
 ```{r}
@@ -88,21 +80,27 @@ How can we associate that to the different types of seeds ??
 ```{r}
 table(seeds$Type)
 ```
-There are 66 type 1, 68 type 2 and 65 type 3.????
+
 
 Lets split into training and test sets:
 
 ```{r}
-#  0.8% of the observations observations out of the total 199
-train_sample <- sample(199, 159)
+
+#  0.8% of the observations out of the total 199
+train_sample <- sample(nrow(seeds), round(0.8*(nrow(seeds)),0))
+
 
 str(train_sample) # the resulting train_sample object is a vector of 159 random integers
+
 
 # split into train/test
 seeds_train <- seeds[train_sample, ]
 seeds_test <- seeds[-train_sample, ]
+```
+There are 66 type 1, 68 type 2 and 65 type 3 from our table seeds, which means that we have about a third of each type in the data set.
+For that we should check that we got about 1/3 of each type in each data set:
 
-# check that we got about 30% defaulted loans in each dataset:
+```{r}
 prop.table(table(seeds_train$Type))
 prop.table(table(seeds_test$Type))
 ```
@@ -124,13 +122,17 @@ indicates that the tree is 7 decisions deep
 Next we'll look at the summary of the model. 
 Note that the first three lines could be represented in plain language as:
 
-There are only 2 possibilities of the kernel groove is greater than 5.528,
-Whe kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
-In this case, there is only one possibility to Kernel.Groove <= 4.783, otherwise, one possibility of Kernel.Groove > 4.783 , otherwise, Kernel.Groove<=4.783 and one possibility for Asymmetry.Coeff <= 1.502, otherwise, Asymmetry.Coeff> 1.502 and3 possibilities to kernel.Groove>4.914, otherwise, kernel.groove<=13.914 and 3 possibilities for perimeter<=13.47 and 1 possibility foe Perimeter>13.47.
 
 ```{r}
 summary(seeds_model)
 ```
+Explanation of the tree:
+
+There are only 2 possibilities of the kernel groove is greater than 5.528,
+The kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
+In this case, there is only one possibility to Kernel.Groove <= 4.783, otherwise, one possibility of Kernel.Groove > 4.783 , otherwise, Kernel.Groove<=4.783 and one possibility for Asymmetry.Coeff <= 1.502, otherwise, Asymmetry.Coeff> 1.502 and3 possibilities to kernel.Groove>4.914, otherwise, kernel.groove<=13.914 and 3 possibilities for perimeter<=13.47 and 1 possibility foe Perimeter>13.47.
+
+
 
 The numbers in parentheses indicate the number of examples meeting the criteria for
 that decision, and the number incorrectly classified by the decision. 
