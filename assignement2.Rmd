@@ -8,8 +8,7 @@ output: pdf_document
 ---
 Classify the seed types using 2 classifying methods:
 
-
--Decision trees
+1. Decision trees algorithm
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -94,13 +93,16 @@ str(train_sample) # the resulting train_sample object is a vector of 159 random 
 
 
 # split into train/test
+# for the train we take the train sample
 seeds_train <- seeds[train_sample, ]
+#for the test, we take all the data except the train sample
 seeds_test <- seeds[-train_sample, ]
 ```
 There are 66 type 1, 68 type 2 and 65 type 3 from our table seeds, which means that we have about a third of each type in the data set.
 For that we should check that we got about 1/3 of each type in each data set:
 
 ```{r}
+#we want to be sure that the distribution is as we defined to have a correct classification
 prop.table(table(seeds_train$Type))
 prop.table(table(seeds_test$Type))
 ```
@@ -109,21 +111,17 @@ The 8th column of the dataset is the type class variable, so we need to exclude 
 
 ```{r}
 # apply model in training data (8th column is the label to be predicted)
+#creation of decision tree and we do not take the seeds (8)
 seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 
 seeds_model
 ```
-
-The preceding text shows some simple facts about the tree, including the function
-call that generated it, the number of features (labeled predictors), and examples
-(labeled samples) used to grow the tree. Also listed is the tree size of 7, which
-indicates that the tree is 7 decisions deep 
+The tree size is 6 and it contains 7 predictors.
 
 Next we'll look at the summary of the model. 
-Note that the first three lines could be represented in plain language as:
-
 
 ```{r}
+#summary of the model to understand it
 summary(seeds_model)
 ```
 Explanation of the tree:
@@ -132,15 +130,10 @@ There are only 2 possibilities of the kernel groove is greater than 5.528,
 The kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
 In this case, there is only one possibility to Kernel.Groove <= 4.783, otherwise, one possibility of Kernel.Groove > 4.783 , otherwise, Kernel.Groove<=4.783 and one possibility for Asymmetry.Coeff <= 1.502, otherwise, Asymmetry.Coeff> 1.502 and3 possibilities to kernel.Groove>4.914, otherwise, kernel.groove<=13.914 and 3 possibilities for perimeter<=13.47 and 1 possibility foe Perimeter>13.47.
 
+the percentage of error is relatively low: 1.3% 
+Kernel.Groove and area seem to be the better attribute. To construct the tree, the model used 4 attributes: Kernel.Groove, area, Asymmetry.Coeff and Kernel.Width.
 
-
-The numbers in parentheses indicate the number of examples meeting the criteria for
-that decision, and the number incorrectly classified by the decision. 
-For instance, on the first line, 326/34 indicates that of the 326 examples reaching the decision, 34 were incorrectly classified as not likely to default. In other words, 34 applicants actually defaulted, in spite of the model's prediction.??????
-
-???? HELP to inderstand ????
-
-As we now know, it is very important to evaluate our model performance:
+We want to evaluate our prediction
 
 ```{r}
 # apply model on test data
@@ -148,51 +141,41 @@ seeds_pred <- predict(seeds_model, seeds_test)
 
 CrossTable(seeds_test$Type, seeds_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual type', 'predicted type'))
 ```
-?????????????????????????????????????
-The performance here is somewhat worse than its performance on the
-training data, but not unexpected, given that a model's performance is often worse
-on unseen data. Also note that there are relatively many mistakes where the model predicted not a default, when in practice the loaner did default. 
-Unfortunately, this type of error is a potentially costly mistake, as the bank loses money on each default. 
-Let's see if we can improve the result with a bit more effort.
-????????????????????????????
+Type seed 2 and 3 are predicted correctly at 100%, there is no false positive or false negative. The type seed 1 has some false negatives,but few.
+
+We will try to improve our results, using adaptive boosting to have a lower percentage of error. This is a process in which many decision trees are built and the trees vote on the best class for each example.
+
 ### Adaptive Boosting
-
-So, our model is not that great. Let's try and improve it next. C5.0 includes a feature called adaptive boosting. This is a process in which many decision trees are built and the trees vote on the best class for each example. 
-
-The C5.0() function makes it easy to add boosting to our C5.0 decision tree. We
-simply need to add an additional trials parameter indicating the number of
-separate decision trees to use in the boosted team. The trials parameter sets an
-upper limit; the algorithm will stop adding trees if it recognizes that additional 
-trials do not seem to be improving the accuracy. 
+ 
 We'll start with 10 trials, a number that has become the de facto standard, as research 
 suggests that this reduces error rates on test data by about 25 percent:
 
 ```{r}
 # boosting with 10 trials (on training)
-credit_boost10 <- C5.0(credit_train[-17], credit_train$default, trials = 10)
 
-credit_boost10
+seeds_boost10 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 10)
 
-summary(credit_boost10)
+seeds_boost10 
+
+summary(seeds_boost10 )
 ```
 
-The classifier made 25 mistakes on 800 training examples for an error rate of
-3.1% percent. This is quite an improvement over the previous training error rate
+The classifier made 1 mistake for an error rate of
+0.6% percent. This is an improvement over the previous training error rate
 before adding boosting! However, it remains to be seen whether we see
 a similar improvement on the test data. Let's take a look:
 
 ```{r}
 # boosting on test data
-credit_boost_pred10 <- predict(credit_boost10, credit_test)
+seeds_boost_pred10 <- predict(seeds_boost10, seeds_test)
 
-CrossTable(credit_test$default, credit_boost_pred10,
+CrossTable(seeds_test$Type, seeds_boost_pred10,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-dnn = c('actual default', 'predicted default'))
+dnn = c('actual Type', 'predicted Type'))
 ```
 
-The model is still not doing well at predicting defaults, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
-
-Next, lets proceed to fine-tune our algorithm, using a cost matrix. 
+The model made 2 errors instead of 3 before the boost, on seeds of type 1.
+We will try to ameliorate predictions. We will fine-tune our algorithm, using a cost matrix. 
 The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
 
 First, we'll create a default 2x2 matrix, to later be filled with our cost values:
@@ -204,6 +187,8 @@ names(matrix_dimensions) <- c("predicted", "actual")
 matrix_dimensions
 ```
 
+if the model get a mistake it put on it a big penalty. it is to have a better prediction.
+the penalty is based on the cost matrix
 Suppose we believe that a loan default costs the bank four times as much as a missed opportunity. 
 Our penalty values could then be defined as:
 
@@ -216,15 +201,15 @@ error_cost
 Now lets train again and see if the cost matrix made any difference:
 
 ```{r}
-# apply model on training data with cost matrix
-credit_cost <- C5.0(credit_train[-17], credit_train$default, costs = error_cost)
+# apply model on training data with cost matrix ==> I DONT KNOW about the error.. I need help 
+seeds_cost <- C5.0(seeds_train[-8], seeds_train$Type, costs = error_cost)
 
 # predict on test data
-credit_cost_pred <- predict(credit_cost, credit_test)
+seeds_cost_pred <- predict(seeds_cost, seeds_test)
 
-CrossTable(credit_test$default, credit_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
+CrossTable(seeds_test$default, seeds_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
 ```
-
+# then we should write our conclusion about the different predictions obtained.
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
 
 
@@ -232,3 +217,108 @@ To create our decision trees in this practice we used the C5.0 package.
 There is another package called "party" which has the 'ctree' function which
 also generates decision trees. You can read about it here: https://ademos.people.uic.edu/Chapter24.html.
 
+2. KNN Algorithm
+
+First we will work with a new table of data. 
+Then,we will transform the values of the Type variable  to a factor variable:
+
+```{r}
+seeds_knn<-seeds
+seeds_knn$Type <- factor(seeds_knn$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
+
+# percentage of each type
+round(prop.table(table(seeds_knn$Type))*100, digits = 1)
+```
+
+Since we want to use KNN, we have to make sure the range of values of each parameter is similar. We'll have to normalize our data to make sure our classifier will work. 
+Lets create a simple normalization function (min/max normalization):
+
+```{r}
+# create the min/max normalization function:
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# test our function
+normalize(c(1, 2, 3, 4, 5))
+normalize(c(10, 20, 30, 40, 50))
+```
+
+Use the normalization function on our data, and make sure it worked:
+
+```{r}
+seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
+
+summary(seeds_norm$Area)
+```
+
+
+The next step is to create a training set and a test set, and to store the labels in a different vector to be used later. We usually want to divide our data into 80%, 20% test, but we can always try a ratio of 85-15 or even 90-10 
+and see if results improved. 
+
+```{r}
+# create train set
+seeds_knn_train <- seeds_train
+# create test set
+seeds_knn_test <- seeds_test
+# types of train set
+seeds_train_types <- seeds_knn[1:159, 8]
+# labels of test set
+seeds_test_types <- seeds_knn[160:199, 8]
+```
+
+```{r}
+library(class) 
+```
+
+Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, reducing the change of a tie vote.
+
+```{r}
+seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=12)
+```
+
+So, how well did we do? Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+
+```{r}
+library(gmodels)
+CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+```
+??? I did not understand this table where is the error????
+
+In the above table we see that all of the benign were predicted correctly, and 36 out of the 39 malignant 
+were too. 3 malignant labels were mistaken for being benign.
+
+Lets see if we can improve our results. First, lets try z-score standardization instead of normalization:
+
+```{r}
+# z-score normalization
+seeds_z <- as.data.frame(scale(seeds_knn[-8]))
+
+summary(seeds_z$Area)
+```
+
+We'll quickly repeat the previous steps (divide the data into train and test, classify, and compare the results to the true values):
+
+
+```{r}
+seeds_train_z <- seeds_z[1:159, ]
+seeds_test_z <- seeds_z[160:199, ]
+seeds_train_types_z <- seeds_knn[1:159,8]
+seeds_test_types_z <- seeds_knn[160:199, 8]
+seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=12)
+CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
+```
+
+It seems to be worth, the model predicted only 2 types on 3. What about a different value of K?
+
+```{r}
+seeds_test_pred_k8 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=8)
+seeds_test_pred_k15 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=15)
+seeds_test_pred_k1 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=1)
+
+CrossTable(x = seeds_train_types, y = seeds_test_pred_k8, prop.chisq=FALSE)
+CrossTable(x = seeds_train_types, y = seeds_test_pred_k15, prop.chisq=FALSE)
+CrossTable(x = seeds_train_types, y = seeds_test_pred_k1, prop.chisq=FALSE)
+
+```
+# error... need help
