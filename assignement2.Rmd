@@ -27,7 +27,7 @@ library(gmodels)
 library(C50)
 
 # read data
-seeds <- read.csv("seeds.csv")
+seeds <- read.csv("/Users/lilach/Documents/master/שנה א/סמסטר ב/למידת מכונה- סול/תרגילים/תרגיל 2/assignment-2/seeds.csv")
 
 # Consider setting a seed for reproducible results
 
@@ -108,7 +108,9 @@ prop.table(table(seeds_train$Type))
 prop.table(table(seeds_test$Type))
 ```
 
-#### target factor (label) vector for classification
+## run the algorithm
+
+##### target factor (label) vector for classification
 
 The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, but supply it as the target factor (label) vector for classification:
 
@@ -119,7 +121,7 @@ seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 seeds_model
 ```
 
-##### simple facts about the tree
+#### simple facts about the tree
 The preceding text shows some simple facts about the tree, including the function
 call that generated it, the number of features (labeled predictors), and examples
 (labeled samples) used to grow the tree. Also listed is the tree size of 7, which
@@ -132,7 +134,7 @@ Note that the first three lines could be represented in plain language as:
 ```{r}
 summary(seeds_model)
 ```
-### Explanation of the tree:
+#### Explanation of the tree:
 
 There are only 2 possibilities of the kernel groove is greater than 5.528,
 The kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
@@ -148,6 +150,7 @@ For instance, on the first line, 326/34 indicates that of the 326 examples reach
 
 As we now know, it is very important to evaluate our model performance:
 
+### evaluate our model performance
 ```{r}
 # apply model on test data
 seeds_pred <- predict(seeds_model, seeds_test)
