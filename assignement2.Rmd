@@ -9,20 +9,15 @@ output: pdf_document
 Classify the seed types using 2 classifying methods:
 
 <<<<<<< HEAD
-1. Decision trees algorithm
+
 =======
 
-# Decision trees
->>>>>>> d969d9d6123bf03d2377ec0523df743bd3513325
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-## teach the the algorithm
-
-### preproccessing 
+#preproccessing
 
 ##### Set up our environment and data:
 
@@ -41,7 +36,7 @@ set.seed(1234)
 
 #### find the type
 
-The aim: classify the seedr types.
+The aim: classify the seed types.
 There are 3 types of seeds: 1,2,3.
 we took a quick look at the data to try to find which parameter is important :
 
@@ -88,6 +83,29 @@ How can we associate that to the different types of seeds ??
 table(seeds$Type)
 ```
 
+### Normalization
+We'll have to normalize our data to make sure our classifier will work. 
+Lets create a simple normalization function (min/max normalization):
+
+```{r}
+# create the min/max normalization function:
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# test our function
+normalize(c(1, 2, 3, 4, 5))
+normalize(c(10, 20, 30, 40, 50))
+```
+
+Use the normalization function on our data, and make sure it worked:
+
+```{r}
+seeds_norm <- as.data.frame(lapply(seeds_knn[1:7], normalize))
+
+summary(seeds_norm$Area)
+```
+
 ### split into training and test sets
 Lets split into training and test sets:
 
@@ -116,6 +134,7 @@ prop.table(table(seeds_test$Type))
 ```
 
 #### target factor (label) vector for classification
+# Decision tree
 
 The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, but supply it as the target factor (label) vector for classification:
 
@@ -249,28 +268,7 @@ seeds_knn$Type <- factor(seeds_knn$Type, levels = c("1", "2","3"), labels = c("1
 round(prop.table(table(seeds_knn$Type))*100, digits = 1)
 ```
 
-Since we want to use KNN, we have to make sure the range of values of each parameter is similar. We'll have to normalize our data to make sure our classifier will work. 
-Lets create a simple normalization function (min/max normalization):
-
-```{r}
-# create the min/max normalization function:
-normalize <- function(x) {
-return ((x - min(x)) / (max(x) - min(x)))
-}
-
-# test our function
-normalize(c(1, 2, 3, 4, 5))
-normalize(c(10, 20, 30, 40, 50))
-```
-
-Use the normalization function on our data, and make sure it worked:
-
-```{r}
-seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
-
-summary(seeds_norm$Area)
-```
-
+Since we want to use KNN, we have to make sure the range of values of each parameter is similar. 
 
 The next step is to create a training set and a test set, and to store the labels in a different vector to be used later. We usually want to divide our data into 80%, 20% test, but we can always try a ratio of 85-15 or even 90-10 
 and see if results improved. 
@@ -290,7 +288,7 @@ seeds_test_types <- seeds_knn[160:199, 8]
 library(class) 
 ```
 
-Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, reducing the change of a tie vote.
+Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, reducing the chance of a tie vote.
 
 ```{r}
 seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=12)
