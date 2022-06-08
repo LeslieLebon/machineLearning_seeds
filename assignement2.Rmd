@@ -266,10 +266,13 @@ and see if results improved.
 
 # types of train set
 
-seeds_train_types <- seeds[sample((nrow(seeds)), 159), 8]
+
+samples_seed <- seeds[sample(nrow(seeds)),]
+seeds_train_types <-samples_seed[1:159, 8]
 
 # labels of test set
-seeds_test_types <- seeds[sample((nrow(seeds)), 160:199), 8]
+
+seeds_test_types <- samples_seed[160:199,8 ]
 ```
 
 Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
@@ -286,16 +289,36 @@ seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_
 # it is not running
 CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
 ```
-#Lilach, here I do not understand why we have only one row, we should have 3 rows: one for each type.
 
-In the above table we see that all of the benign were predicted correctly, and 36 out of the 39 malignant 
-were too. 3 malignant labels were mistaken for being benign.
+
+```{r}
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=9)
+```
+
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+
+```{r}
+# it is not running
+CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+```
+
+```{r}
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=18)
+```
+
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+
+```{r}
+# it is not running
+CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+```
+
 
 Lets see if we can improve our results. First, lets try z-score standardization instead of normalization:
 
 ```{r}
 # z-score normalization
-seeds_z <- as.data.frame(scale(seeds[-8]))
+seeds_z <- as.data.frame(scale(samples_seed[-8]))
 
 summary(seeds_z$Area)
 ```
@@ -304,24 +327,12 @@ We'll quickly repeat the previous steps (divide the data into train and test, cl
 
 
 ```{r}
-seeds_train_z <- seeds_z[1:159, ] #Lilach there is a problem here , we should sample data but when I sample them I have erors in the crosstable.
-seeds_test_z <- seeds_z[160:199, ]#same
-seeds_train_types_z <- seeds[1:159,8]
-seeds_test_types_z <- seeds[160:199, 8]
+seeds_train_z <- seeds_z[1:159, ] 
+seeds_test_z <- seeds_z[160:199, ]
+seeds_train_types_z <- samples_seed[1:159,8]
+seeds_test_types_z <- samples_seed[160:199, 8]
 seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=3)
 CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
 ```
 
-It seems to be worth, the model predicted only 2 types on 3. What about a different value of K?
-
-```{r}
-seeds_test_pred_k8 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=8)
-seeds_test_pred_k15 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=15)
-seeds_test_pred_k1 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=1)
-
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k8, prop.chisq=FALSE)
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k15, prop.chisq=FALSE)
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k1, prop.chisq=FALSE)
-
-```
-# error... need help
+It seems to be better, the model predicted  . 
