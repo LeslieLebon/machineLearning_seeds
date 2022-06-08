@@ -2,7 +2,10 @@
 title: "assignement2"
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
-output: pdf_document
+output:
+  word_document: 
+    toc_depth: 7
+  pdf_document: default
 ---
 
 ---
@@ -13,13 +16,11 @@ Classify the seed types using 2 classifying methods:
 =======
 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 #preproccessing
 
-##### Set up our environment and data:
+### environment and data:
 
 ```{r setup, results='hide'}
 library(gmodels)
@@ -34,7 +35,7 @@ seeds <- read.csv("seeds.csv")
 set.seed(1234)
 ```
 
-#### find the type
+### find the type
 
 The aim: classify the seed types.
 There are 3 types of seeds: 1,2,3.
@@ -145,11 +146,9 @@ seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 
 seeds_model
 ```
-<<<<<<< HEAD
 The tree size is 6 and it contains 7 predictors.
-=======
 
-##### simple facts about the tree
+## simple facts about the tree
 The preceding text shows some simple facts about the tree, including the function
 call that generated it, the number of features (labeled predictors), and examples
 (labeled samples) used to grow the tree. Also listed is the tree size of 7, which
@@ -183,7 +182,7 @@ Type seed 2 and 3 are predicted correctly at 100%, there is no false positive or
 
 We will try to improve our results, using adaptive boosting to have a lower percentage of error. This is a process in which many decision trees are built and the trees vote on the best class for each example.
 
-### Adaptive Boosting
+## Adaptive Boosting
  
 We'll start with 10 trials, a number that has become the de facto standard, as research 
 suggests that this reduces error rates on test data by about 25 percent:
@@ -247,7 +246,8 @@ seeds_cost_pred <- predict(seeds_cost, seeds_test)
 
 CrossTable(seeds_test$default, seeds_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
 ```
-# then we should write our conclusion about the different predictions obtained.
+## conclusions
+then we should write our conclusion about the different predictions obtained.
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
 
 
@@ -255,7 +255,7 @@ To create our decision trees in this practice we used the C5.0 package.
 There is another package called "party" which has the 'ctree' function which
 also generates decision trees. You can read about it here: https://ademos.people.uic.edu/Chapter24.html.
 
-2. KNN Algorithm
+# KNN Algorithm
 
 First we will work with a new table of data. 
 Then,we will transform the values of the Type variable  to a factor variable:
@@ -288,10 +288,10 @@ seeds_test_types <- seeds_knn[160:199, 8]
 library(class) 
 ```
 
-Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, reducing the chance of a tie vote.
+Now, we will run the KNN algorithm and We will start with K of 3, the square root of 159 and also an odd number, reducing the chance of a tie vote.
 
 ```{r}
-seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=12)
+seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=3)
 ```
 
 So, how well did we do? Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
@@ -322,7 +322,7 @@ seeds_train_z <- seeds_z[1:159, ]
 seeds_test_z <- seeds_z[160:199, ]
 seeds_train_types_z <- seeds_knn[1:159,8]
 seeds_test_types_z <- seeds_knn[160:199, 8]
-seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=12)
+seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=3)
 CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
 ```
 
@@ -333,9 +333,10 @@ seeds_test_pred_k8 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = s
 seeds_test_pred_k15 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=15)
 seeds_test_pred_k1 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=1)
 
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k8, prop.chisq=FALSE)
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k15, prop.chisq=FALSE)
-CrossTable(x = seeds_train_types, y = seeds_test_pred_k1, prop.chisq=FALSE)
+CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k8, prop.chisq=FALSE)
+CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k15, prop.chisq=FALSE)
+CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k1, prop.chisq=FALSE)
+
 
 ```
 # error... need help
