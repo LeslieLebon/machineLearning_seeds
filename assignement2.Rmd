@@ -24,6 +24,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r setup, results='hide'}
 library(gmodels)
 library(C50)
+library(class) 
+library(gmodels)
 
 # read data
 seeds <- read.csv("seeds.csv")
@@ -83,28 +85,7 @@ How can we associate that to the different types of seeds ??
 table(seeds$Type)
 ```
 
-### Normalization
-We'll have to normalize our data to make sure our classifier will work. 
-Lets create a simple normalization function (min/max normalization):
 
-```{r}
-# create the min/max normalization function:
-normalize <- function(x) {
-return ((x - min(x)) / (max(x) - min(x)))
-}
-
-# test our function
-normalize(c(1, 2, 3, 4, 5))
-normalize(c(10, 20, 30, 40, 50))
-```
-
-Use the normalization function on our data, and make sure it worked:
-
-```{r}
-seeds_norm <- as.data.frame(lapply(seeds_knn[1:7], normalize))
-
-summary(seeds_norm$Area)
-```
 
 ### split into training and test sets
 Lets split into training and test sets:
@@ -213,47 +194,32 @@ dnn = c('actual Type', 'predicted Type'))
 ```
 
 The model made 2 errors instead of 3 before the boost, on seeds of type 1.
-We will try to ameliorate predictions. We will fine-tune our algorithm, using a cost matrix. 
-The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
-
-First, we'll create a default 2x2 matrix, to later be filled with our cost values:
+WE will try to improve the result, with more trials than 10, for example 15.
 
 ```{r}
-matrix_dimensions <- list(c("no", "yes"), c("no", "yes"))
-names(matrix_dimensions) <- c("predicted", "actual")
+# boosting with 20 trials (on training)
 
-matrix_dimensions
+seeds_boost20 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 20)
+
+seeds_boost20 
+
+summary(seeds_boost20 )
+
+
+# boosting on test data
+seeds_boost_pred20 <- predict(seeds_boost20, seeds_test)
+
+CrossTable(seeds_test$Type, seeds_boost_pred20,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual Type', 'predicted Type'))
+
 ```
+With 10 trials, we obtained the best result. Indeed, choosing 20 trials in the boost does not improve the result. The error rate stay similar than with 10 trials.
 
-if the model get a mistake it put on it a big penalty. it is to have a better prediction.
-the penalty is based on the cost matrix
-Suppose we believe that a loan default costs the bank four times as much as a missed opportunity. 
-Our penalty values could then be defined as:
-
-```{r}
-error_cost <- matrix(c(0, 1, 4, 0), nrow = 2, dimnames = matrix_dimensions)
-
-error_cost
-```
-
-Now lets train again and see if the cost matrix made any difference:
-
-```{r}
-# apply model on training data with cost matrix ==> I DONT KNOW about the error.. I need help 
-seeds_cost <- C5.0(seeds_train[-8], seeds_train$Type, costs = error_cost)
-
-# predict on test data
-seeds_cost_pred <- predict(seeds_cost, seeds_test)
-
-CrossTable(seeds_test$default, seeds_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual default', 'predicted default'))
-```
 # then we should write our conclusion about the different predictions obtained.
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
-
-
 To create our decision trees in this practice we used the C5.0 package. 
-There is another package called "party" which has the 'ctree' function which
-also generates decision trees. You can read about it here: https://ademos.people.uic.edu/Chapter24.html.
+
 
 2. KNN Algorithm
 
@@ -261,46 +227,66 @@ First we will work with a new table of data.
 Then,we will transform the values of the Type variable  to a factor variable:
 
 ```{r}
-seeds_knn<-seeds
-seeds_knn$Type <- factor(seeds_knn$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
+
+seeds$Type <- factor(seeds$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
 
 # percentage of each type
-round(prop.table(table(seeds_knn$Type))*100, digits = 1)
+round(prop.table(table(seeds$Type))*100, digits = 1)
+```
+### Normalization
+We'll have to normalize our data to make sure our classifier will work. 
+Lets create a simple normalization function (min/max normalization):
+
+#Lilach, we cannot normalized for the decision tree, because before to normalize you need to remove the Types column and we need this column in the decision tree. So, I replaced the normalization in the KNN algo.
+
+```{r}
+# create the min/max normalization function:
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# test our function
+normalize(c(1, 2, 3, 4, 5))
+normalize(c(10, 20, 30, 40, 50))
 ```
 
+Use the normalization function on our data, and make sure it worked:
+
+```{r}
+seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
+
+summary(seeds_norm$Area)
+```
 Since we want to use KNN, we have to make sure the range of values of each parameter is similar. 
 
 The next step is to create a training set and a test set, and to store the labels in a different vector to be used later. We usually want to divide our data into 80%, 20% test, but we can always try a ratio of 85-15 or even 90-10 
 and see if results improved. 
 
 ```{r}
-# create train set
-seeds_knn_train <- seeds_train
-# create test set
-seeds_knn_test <- seeds_test
+
 # types of train set
-seeds_train_types <- seeds_knn[1:159, 8]
+
+seeds_train_types <- seeds[sample((nrow(seeds)), 159), 8]
+
 # labels of test set
-seeds_test_types <- seeds_knn[160:199, 8]
+seeds_test_types <- seeds[sample((nrow(seeds)), 160:199), 8]
 ```
 
+Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
+
+#Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, #reducing the chance of a tie vote.
+
 ```{r}
-library(class) 
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=3)
 ```
 
-Now, we will run the KNN algorithm and We will start with K of 12, the square root of 159 and also an odd number, reducing the chance of a tie vote.
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
 
 ```{r}
-seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=12)
-```
-
-So, how well did we do? Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
-
-```{r}
-library(gmodels)
+# it is not running
 CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
 ```
-??? I did not understand this table where is the error????
+#Lilach, here I do not understand why we have only one row, we should have 3 rows: one for each type.
 
 In the above table we see that all of the benign were predicted correctly, and 36 out of the 39 malignant 
 were too. 3 malignant labels were mistaken for being benign.
@@ -309,7 +295,7 @@ Lets see if we can improve our results. First, lets try z-score standardization 
 
 ```{r}
 # z-score normalization
-seeds_z <- as.data.frame(scale(seeds_knn[-8]))
+seeds_z <- as.data.frame(scale(seeds[-8]))
 
 summary(seeds_z$Area)
 ```
@@ -318,11 +304,11 @@ We'll quickly repeat the previous steps (divide the data into train and test, cl
 
 
 ```{r}
-seeds_train_z <- seeds_z[1:159, ]
-seeds_test_z <- seeds_z[160:199, ]
-seeds_train_types_z <- seeds_knn[1:159,8]
-seeds_test_types_z <- seeds_knn[160:199, 8]
-seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=12)
+seeds_train_z <- seeds_z[1:159, ] #Lilach there is a problem here , we should sample data but when I sample them I have erors in the crosstable.
+seeds_test_z <- seeds_z[160:199, ]#same
+seeds_train_types_z <- seeds[1:159,8]
+seeds_test_types_z <- seeds[160:199, 8]
+seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=3)
 CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
 ```
 
