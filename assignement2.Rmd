@@ -59,6 +59,8 @@ Now- let's get to work!!
 length_of_training_set <-round(0.8*(nrow(seeds)),0) #  0.8% of the observations out of the total 199
 seeds_train <- seeds[1:length_of_training_set, ]
 seeds_test <- seeds[(length_of_training_set+1):nrow(seeds), ]
+seeds_train_labels <-seeds_train[, 8]
+seeds_test_labels <-seeds_test[, 8]
 ```
 Since we know that there are about a third of each type in the data set, we want to be sure that the distribution is as we defined (about 1/3 of each type in of both training and test sets):
 
@@ -83,23 +85,16 @@ seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 summary(seeds_model)
 ```
 
-In each iteration the algorithm divided the dataset into two parts: it chooses a number and a column and everything that is greater than that number in that column goes into one group everything that is smaller or equal to that number in that column goes to the other group. It keeps them dividing until all the members in a group have the same type.
+The algorithm did six iterations. In the first iteration it divided all the seeds into two subgroups (nodes) according to whether their Groove was higher or lower than 5.533. One node was pure (all seeds in the node were Class 2), and the other node went through another iteration according to the Area, where both nodes were not pure and needed to go through another iteration. One node was split into two pure nodes-again according to Groove-which yielded 2 pure nodes (Class 3 or class 1). The other node was split according to the asymmetry coefficient which resulted in one pure node (of Class 1 ) whereas the other node went into another iteration according to the width which yielded 2 pure nodes (classes 3 and 1 ).
 
-- The algorithm started with the column' groove', and the number 5.33. It found that all those with a groove bigger than that are of type 2 (sub-mission completed). 
-The algorithm then went to classify the data in the other group (groove smaller than 5.533). 
-- It divided that group into two subgroups according to the column' area' and found that all those left that are larger than an area of 13.37 are all 1. 
-- The ones that are smaller or equal to in area of 13.37 and groove of 5.33 were again divided by the groove. Out of those with a groove that is bigger than 4.914, those with the asymmetry coefficient that is smaller or equal to 1.791 or a type one, and those that are larger than that art type 3.
-- The seeds with a groove that is larger than 4.915 (and smaller than 5.533 ) are divided according to the perimeter. Those were the perimeter larger than 13.41 or type 1, those that are smaller or equal to 13 point .1 and larger than 13.19 are type 3 and those that are smaller than 13.19 are type one.
+the percentage of error is relatively low: 1.3%.
+The algorithm uses the feature that provides the most Information Gain in every split.Since it used 100.00% of the information from the Kernel.Groove column, we can assume that that column provided the most information gain (at least in the first iteration). The algorithm also used  66.04% of the Area column; 31.45% of the Asymmetry.Coeff; and 4.40%	of the Kernel.Width column, so that also gives us some information about how much these features influenced the Information Gain function.
 
-the percentage of error is relatively low: 1.3% 
-Kernel.Groove and area seem to be the better attribute. To construct the tree, the model used 4 attributes: Kernel.Groove, area, Asymmetry.Coeff and Kernel.Width.
-
-We want to evaluate our prediction
+After teaching the model on the training set, we want to use it to predict the class is on the test set, and then compare the test set to what we predicted for the test said using our predictive model.
 
 ```{r, message=FALSE, warning=FALSE}
 # apply model on test data
 seeds_pred <- predict(seeds_model, seeds_test)
-
 CrossTable(seeds_test$Type, seeds_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual type', 'predicted type'))
 ```
 Type seeds 2 and 3 both have no false positives (all predictions of type two or three were actually typed two or 3) with a few false negatives (one type 2 and 2 type 3s that were predicted as type one). Type 1 on the other hand has no false negative (all type 1 seeds were predicted as type 1) but it had a few false positives (as mentioned before- one that was actually type 2 and two were actually type 3).
@@ -132,19 +127,13 @@ dnn = c('actual Type', 'predicted Type'))
 The model made 2 errors instead of 3 before the boost, on seeds of type 1.
 WE will try to improve the result, with more trials than 10, for example 15.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results=FALSE}
 # boosting with 20 trials (on training)
-
 seeds_boost20 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 20)
-
-seeds_boost20 
-
 summary(seeds_boost20 )
-
 
 # boosting on test data
 seeds_boost_pred20 <- predict(seeds_boost20, seeds_test)
-
 CrossTable(seeds_test$Type, seeds_boost_pred20,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual Type', 'predicted Type'))
@@ -160,8 +149,9 @@ To create our decision trees in this practice we used the C5.0 package.
 
 
 # KNN Algorithm
+In the KNN Algorithm, k is a user-defined constant, and an unlabeled vector (a query or test point) is classified by assigning the label which is most frequent among the k training samples nearest to that query point.
 ## Normalization
-We'll normalized our data to make sure our classifier will work using a simple normalization function (min/max normalization):
+In order to compare the distances of different features with different scales, we made sure the range of values of each parameter is similar by using a simple normalization function (min/max normalization):
 ```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 # min/max normalization function:
 normalize <- function(x) {
@@ -174,90 +164,66 @@ normalize(c(1, 2, 3, 4, 5))
 normalize(c(10, 20, 30, 40, 50))
 ```
 
-We used the normalization function on our data, and made sure it worked:
+We used the normalization function on our training and test sets, and made sure it worked:
 ```{r, message=FALSE, warning=FALSE}
-seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
-summary(seeds_norm$Area)
+normalized_seeds_train <- as.data.frame(lapply(seeds_train[1:7], normalize))
+normalized_seeds_test <- as.data.frame(lapply(seeds_test[1:7], normalize))
+summary(normalized_seeds_train$Area)
+summary(normalized_seeds_test$Area)
 ```
-Since we want to use KNN, we have to make sure the range of values of each parameter is similar. 
-
-The next step is to create a training set and a test set, and to store the labels in a different vector to be used later. We usually want to divide our data into 80%, 20% test, but we can always try a ratio of 85-15 or even 90-10 
-and see if results improved. 
-
-```{r, message=FALSE, warning=FALSE}
-
-# types of train set
-
-
-samples_seed <- seeds[sample(nrow(seeds)),]
-seeds_train_types <-samples_seed[1:159, 8]
-
-# labels of test set
-
-seeds_test_types <- samples_seed[160:199,8 ]
-```
-
-Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
 
 ## run the KNN algorithm
-Now, we will run the KNN algorithm and We will start with K of 12 (???), the square root of 159 and also an odd number, #reducing the chance of a tie vote.
+Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
 
+And finally, we are ready to run our algorithm. We'll start with K of 21, the square root of 455 and also an odd number, reducing the change of a tie vote.
 ```{r, message=FALSE, warning=FALSE}
-seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=3)
+seeds_test_pred <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=21)
 ```
 
- Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
-
-```{r, message=FALSE, warning=FALSE}
-# it is not running
-CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
-```
-
-
-```{r, message=FALSE, warning=FALSE}
-seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=9)
-```
-
- Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package loaded: 
 
 ```{r, message=FALSE, warning=FALSE}
 # it is not running
-CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred, prop.chisq=FALSE)
 ```
-
-```{r, message=FALSE, warning=FALSE}
-seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=18)
-```
-
- Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
-
-```{r, message=FALSE, warning=FALSE}
-# it is not running
-CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
-```
-
-
+In the above table we see that all 17 seeds(100%) of type 1 were predicted correctly, but it has a few false positives (3 seeds that were wrongly predicted as Type one: one seed was actually type 2 and 2 were type 3).
+on the other hand- types two and three which had no false positives (all seeds that were predicted as two or three were actually two or 3 respectively) and only a few false negatives (14/15 type 2 seeds (93.3%) and 6/8 type 3 seeds (75%) were identified correctly). 
+these are really good results!!
 Lets see if we can improve our results. First, lets try z-score standardization instead of normalization:
 
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+seeds_train_z <- as.data.frame(scale(seeds_train[1:7]))
+seeds_test_z <- as.data.frame(scale(seeds_test[1:7]))
+seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=3)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred_z, prop.chisq=FALSE)
+```
+Not much of an improvement, maybe even worse.
+We tried several more times with different K's:
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+seeds_test_pred_k3 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=3)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred_k3, prop.chisq=FALSE)
+
+seeds_test_pred_k9 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=9)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred_k9, prop.chisq=FALSE)
+
+seeds_test_pred_k15 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=15)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred_k15, prop.chisq=FALSE)
+
+seeds_test_pred_k21 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=21)
+CrossTable(x = seeds_test_labels, y = seeds_test_pred_k21, prop.chisq=FALSE)
+```
+
+ It looks like the results are exactly the same, except for K = 9 we got 7/8 type 3 seeds (87.5%) that were predicted correctly and only once predicted falsely as one (which improved both the true positive on type 3 and the false negative on type one).
+
+### feature selection
+The DT algorithm uses the feature that provides the most Information Gain in every split. Using that logic, the feature that is used the least provides the least information gain, and if it doesn't add much information it might disturb as noise. Thus, since we know that the accuracy of the k-NN algorithm can be severely degraded by the presence of noisy or irrelevant features, we tried the KNN algorithm once more, with K=9 and without the "Kernel.Length" column (which attributed the least to the building of the DT). 
 ```{r, message=FALSE, warning=FALSE}
 # z-score normalization
-seeds_z <- as.data.frame(scale(samples_seed[-8]))
-
-summary(seeds_z$Area)
+feature_selected_train <- seeds_train[-4]
+feature_selected_test <- seeds_test[-4]
+feature_selected_test_pred <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=9)
+CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FALSE)
 ```
-
-We'll quickly repeat the previous steps (divide the data into train and test, classify, and compare the results to the true values):
-
-
-```{r, message=FALSE, warning=FALSE}
-seeds_train_z <- seeds_z[1:159, ] 
-seeds_test_z <- seeds_z[160:199, ]
-seeds_train_types_z <- samples_seed[1:159,8]
-seeds_test_types_z <- samples_seed[160:199, 8]
-seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=3)
-CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
-```
-
-It seems to be better, the model predicted  . 
+We managed to improve the true positive of type three to 100%! We have only one mistake left (a type two seed that was predicted as type 1).
 ## KNN conclusions
 # total conclusions
