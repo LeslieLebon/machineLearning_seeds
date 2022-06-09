@@ -69,13 +69,13 @@ prop.table(table(seeds_test$Type))
 
 ### target factor (label) vector for classification
 # Decision tree
+A Decision Tree uses a series of questions that lead to a decision- a class. The goal is to improve purity, to try and have a higher and higher percentage of items in the node are similar, until all items in a node belong to the same class. It does so by taking the items in a node and splitting them in such a manner that they become two groups with improved purity in each (more samples in the group belong to the same class). 
 
-The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, but supply it as the target factor (label) vector for classification:
-
+We will use the C5.0 method.
+The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, and supply it as the target factor (label) vector for classification:
 ```{r, message=FALSE, warning=FALSE}
 seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 ```
-
 
 ### Explanation of initial tree:
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -83,7 +83,7 @@ seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
 summary(seeds_model)
 ```
 
-The algorithm divided the dataset each iteration into two parts: it chooses a number and a column and everything that is greater than that number in that column goes into one group everything that is smaller or equal to that number in that column goes to the other group. It keeps them dividing until all the members in a group have the same type.
+In each iteration the algorithm divided the dataset into two parts: it chooses a number and a column and everything that is greater than that number in that column goes into one group everything that is smaller or equal to that number in that column goes to the other group. It keeps them dividing until all the members in a group have the same type.
 
 - The algorithm started with the column' groove', and the number 5.33. It found that all those with a groove bigger than that are of type 2 (sub-mission completed). 
 The algorithm then went to classify the data in the other group (groove smaller than 5.533). 
@@ -102,22 +102,16 @@ seeds_pred <- predict(seeds_model, seeds_test)
 
 CrossTable(seeds_test$Type, seeds_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual type', 'predicted type'))
 ```
-Type seed 2 and 3 are predicted correctly at 100%, there is no false positive or false negative. The type seed 1 has some false negatives,but few.
+Type seeds 2 and 3 both have no false positives (all predictions of type two or three were actually typed two or 3) with a few false negatives (one type 2 and 2 type 3s that were predicted as type one). Type 1 on the other hand has no false negative (all type 1 seeds were predicted as type 1) but it had a few false positives (as mentioned before- one that was actually type 2 and two were actually type 3).
 
 We will try to improve our results, using adaptive boosting to have a lower percentage of error. This is a process in which many decision trees are built and the trees vote on the best class for each example.
 
-### Adaptive Boosting
- 
-We'll start with 10 trials, a number that has become the de facto standard, as research 
-suggests that this reduces error rates on test data by about 25 percent:
+## Adaptive Boosting
+We'll start with 10 trials, a number that has become the de facto standard, as research suggests that this reduces error rates on test data by about 25 percent:
 
-```{r, message=FALSE, warning=FALSE}
+```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
 # boosting with 10 trials (on training)
-
 seeds_boost10 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 10)
-
-seeds_boost10 
-
 summary(seeds_boost10 )
 ```
 
@@ -166,39 +160,23 @@ To create our decision trees in this practice we used the C5.0 package.
 
 
 # KNN Algorithm
-
-## preproccessing
-First we will work with a new table of data. 
-Then,we will transform the values of the Type variable  to a factor variable:
-
-```{r, message=FALSE, warning=FALSE}
-
-seeds$Type <- factor(seeds$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
-
-# percentage of each type
-round(prop.table(table(seeds$Type))*100, digits = 1)
-```
-### Normalization
-We'll have to normalize our data to make sure our classifier will work. 
-Lets create a simple normalization function (min/max normalization):
-
-
-```{r, message=FALSE, warning=FALSE}
+## Normalization
+We'll normalized our data to make sure our classifier will work using a simple normalization function (min/max normalization):
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 # min/max normalization function:
 normalize <- function(x) {
 return ((x - min(x)) / (max(x) - min(x)))
 }
-
-# test our function
+```
+and to test our function:
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 normalize(c(1, 2, 3, 4, 5))
 normalize(c(10, 20, 30, 40, 50))
 ```
 
-Use the normalization function on our data, and make sure it worked:
-
+We used the normalization function on our data, and made sure it worked:
 ```{r, message=FALSE, warning=FALSE}
 seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
-
 summary(seeds_norm$Area)
 ```
 Since we want to use KNN, we have to make sure the range of values of each parameter is similar. 
