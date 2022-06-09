@@ -2,180 +2,101 @@
 title: "assignement2"
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
-output:
-  word_document: 
+output: 
+  pdf_document: 
     toc_depth: 4
+  word_document: 
     toc: yes
-  pdf_document: default
+    toc_depth: 4
+    fig_caption: yes
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
----
-# introduction 
-Classify the seed types using 2 classifying methods:
+Our objective was to analyze the “wheat-seeds” dataset (where the 'Type' of the seed is the column used for labeling and classifying) using two classifier models that we built. We decided on using the KNN algorithm and the decision tree (DT) algorithm.
 
+# preproccessing
 
+## Upload data and libraries
 
-
-
-
-# the work
-## preproccessing
-
-### environment and data:
-
-```{r setup, results='hide'}
+```{r, message=FALSE, warning=FALSE}
 library(gmodels)
 library(C50)
+library(class) 
 
-# read data
-seeds <- read.csv("seeds.csv")
-
-# Consider setting a seed for reproducible results
-
-#to initialize a pseudo random number generator. 
-set.seed(1234)
+seeds <- read.csv("seeds.csv")# read data
+set.seed(1234)#to initialize a pseudo random number generator. 
 ```
 
-### find the type
+## initial look at the data
 
-The aim: classify the seed types.
-There are 3 types of seeds: 1,2,3.
-we took a quick look at the data to try to find which parameter is important :
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+We know the class ‘type’ is the column (label) to classify according to. we took a quick look at the data:
+```{r, message=FALSE, warning=FALSE}
 str(seeds)
 ```
+There are 3 types of seeds (in the column 'Type'): 1, 2 and 3.
 
-##### convert type from int variable to factor
-
-we converted the class ("type") to a factor, as it is required by the C50 package.
+Since the whole table is sorted according to the' type' column, and we want to work randomly, we will shuffle the whole table
 
 ```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds$Type<-as.factor(seeds$Type)
+seeds <- seeds[sample(nrow(seeds)),]
+str(seeds) #look at the data again to make sure it's shuffled
 ```
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-#the "table" function builds a contingency table of the counts at each combination of factor levels- the number of occurences of each lengh / width/perimeter etc and order them from the lower to the higher kernel/perimeter etc 
-
-table(seeds$Kernel.Length) #majority of  1
-table(seeds$Kernel.Width) #majority of  1
-table(seeds$Kernel.Groove) #mix of  1 to 4
-table(seeds$Perimeter) #majority of 1
-table(seeds$Area) #majority of 1
-table(seeds$Compactness) #mix of 1 and 2
-table(seeds$Asymmetry.Coeff) #majority of 1
-
-```
-The only "repetitive variable" we found is kernel groove.
-
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-# look at summary of the different kernel variables 
-summary(seeds$Kernel.Groove)
-summary(seeds$Kernel.Length)
-summary(seeds$Kernel.Width)
-
-```
-the kernel groove varies between 4.5 and 6.55, the kernel lenght between 4.89 and 6.67
-and the kernel width of seeds varies between 2.63 and 4.033. 
-
-How can we associate that to the different types of seeds ??
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+In order to further understand the data and be able to work with it we used the "table" function. this function builds a contingency table of the counts at each combination of factor levels- what interests us is the Type:
+```{r, message=FALSE, warning=FALSE}
 table(seeds$Type)
 ```
+We can see the Type has 66 times type 1, 68 times type 2, and 65 times type 3, about a third of each type.
 
-### Normalization
-We'll have to normalize our data to make sure our classifier will work. 
-Lets create a simple normalization function (min/max normalization):
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-# create the min/max normalization function:
-normalize <- function(x) {
-return ((x - min(x)) / (max(x) - min(x)))
-}
-
-# test our function
-normalize(c(1, 2, 3, 4, 5))
-normalize(c(10, 20, 30, 40, 50))
+Before starting on teaching the algorithm, we converted the 'Type' column to a factor, as that is what is required by the C50 package.
+```{r, message=FALSE, warning=FALSE}
+seeds$Type<-as.factor(seeds$Type)
 ```
+Now- let's get to work!!
 
-Use the normalization function on our data, and make sure it worked:
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
-
-summary(seeds_norm$Area)
+## split into training and test sets
+```{r, message=FALSE, warning=FALSE}
+length_of_training_set <-round(0.8*(nrow(seeds)),0) #  0.8% of the observations out of the total 199
+seeds_train <- seeds[1:length_of_training_set, ]
+seeds_test <- seeds[(length_of_training_set+1):nrow(seeds), ]
 ```
+Since we know that there are about a third of each type in the data set, we want to be sure that the distribution is as we defined (about 1/3 of each type in of both training and test sets):
 
-### split into training and test sets
-Lets split into training and test sets:
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-
-#  0.8% of the observations out of the total 199
-train_sample <- sample(nrow(seeds), round(0.8*(nrow(seeds)),0))
-
-
-str(train_sample) # the resulting train_sample object is a vector of 159 random integers
-
-
-# split into train/test
-# for the train we take the train sample
-seeds_train <- seeds[train_sample, ]
-#for the test, we take all the data except the train sample
-seeds_test <- seeds[-train_sample, ]
-```
-There are 66 type 1, 68 type 2 and 65 type 3 from our table seeds, which means that we have about a third of each type in the data set.
-For that we should check that we got about 1/3 of each type in each data set (training and test sets):
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-#we want to be sure that the distribution is as we defined to have a correct classification
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
 prop.table(table(seeds_train$Type))
 prop.table(table(seeds_test$Type))
 ```
 
-#### target factor (label) vector for classification
-## Decision tree
+### target factor (label) vector for classification
+# Decision tree
 
 The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, but supply it as the target factor (label) vector for classification:
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-# apply model in training data (8th column is the label to be predicted)
-#creation of decision tree and we do not take the seeds (8)
+```{r, message=FALSE, warning=FALSE}
 seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
-
-seeds_model
 ```
-The tree size is 6 and it contains 7 predictors.
 
-### simple facts about the tree
-The preceding text shows some simple facts about the tree, including the function
-call that generated it, the number of features (labeled predictors), and examples
-(labeled samples) used to grow the tree. Also listed is the tree size of 7, which
-indicates that the tree is 7 decisions deep 
->>>>>>> d969d9d6123bf03d2377ec0523df743bd3513325
 
-Next we'll look at the summary of the model. 
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+### Explanation of initial tree:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 #summary of the model to understand it
 summary(seeds_model)
 ```
-### Explanation of the tree:
 
-There are only 2 possibilities of the kernel groove is greater than 5.528,
-The kernel groove <=5.528, there is one possibility of Area > 13.37, otherwise, Area<=13.37.
-In this case, there is only one possibility to Kernel.Groove <= 4.783, otherwise, one possibility of Kernel.Groove > 4.783 , otherwise, Kernel.Groove<=4.783 and one possibility for Asymmetry.Coeff <= 1.502, otherwise, Asymmetry.Coeff> 1.502 and3 possibilities to kernel.Groove>4.914, otherwise, kernel.groove<=13.914 and 3 possibilities for perimeter<=13.47 and 1 possibility foe Perimeter>13.47.
+The algorithm divided the dataset each iteration into two parts: it chooses a number and a column and everything that is greater than that number in that column goes into one group everything that is smaller or equal to that number in that column goes to the other group. It keeps them dividing until all the members in a group have the same type.
+
+- The algorithm started with the column' groove', and the number 5.33. It found that all those with a groove bigger than that are of type 2 (sub-mission completed). 
+The algorithm then went to classify the data in the other group (groove smaller than 5.533). 
+- It divided that group into two subgroups according to the column' area' and found that all those left that are larger than an area of 13.37 are all 1. 
+- The ones that are smaller or equal to in area of 13.37 and groove of 5.33 were again divided by the groove. Out of those with a groove that is bigger than 4.914, those with the asymmetry coefficient that is smaller or equal to 1.791 or a type one, and those that are larger than that art type 3.
+- The seeds with a groove that is larger than 4.915 (and smaller than 5.533 ) are divided according to the perimeter. Those were the perimeter larger than 13.41 or type 1, those that are smaller or equal to 13 point .1 and larger than 13.19 are type 3 and those that are smaller than 13.19 are type one.
 
 the percentage of error is relatively low: 1.3% 
 Kernel.Groove and area seem to be the better attribute. To construct the tree, the model used 4 attributes: Kernel.Groove, area, Asymmetry.Coeff and Kernel.Width.
 
 We want to evaluate our prediction
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 # apply model on test data
 seeds_pred <- predict(seeds_model, seeds_test)
 
@@ -190,7 +111,7 @@ We will try to improve our results, using adaptive boosting to have a lower perc
 We'll start with 10 trials, a number that has become the de facto standard, as research 
 suggests that this reduces error rates on test data by about 25 percent:
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 # boosting with 10 trials (on training)
 
 seeds_boost10 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 10)
@@ -205,119 +126,144 @@ The classifier made 1 mistake for an error rate of
 before adding boosting! However, it remains to be seen whether we see
 a similar improvement on the test data. Let's take a look:
 
-boosting on test data:
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
+# boosting on test data
 seeds_boost_pred10 <- predict(seeds_boost10, seeds_test)
 
 CrossTable(seeds_test$Type, seeds_boost_pred10,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual Type', 'predicted Type'))
-
 ```
 
 The model made 2 errors instead of 3 before the boost, on seeds of type 1.
-We will try to ameliorate predictions. We will fine-tune our algorithm, using a cost matrix. 
-The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
+WE will try to improve the result, with more trials than 10, for example 15.
 
-First, we'll create a default 2x2 matrix, to later be filled with our cost values:
+```{r, message=FALSE, warning=FALSE}
+# boosting with 20 trials (on training)
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-matrix_dimensions <- list(c(1,2,3), c(1,2,3))
-names(matrix_dimensions) <- c("predicted", "actual")
+seeds_boost20 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 20)
 
-matrix_dimensions
+seeds_boost20 
+
+summary(seeds_boost20 )
+
+
+# boosting on test data
+seeds_boost_pred20 <- predict(seeds_boost20, seeds_test)
+
+CrossTable(seeds_test$Type, seeds_boost_pred20,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual Type', 'predicted Type'))
+
 ```
+With 10 trials, we obtained the best result. Indeed, choosing 20 trials in the boost does not improve the result. The error rate stay similar than with 10 trials.
 
-if the model get a mistake it put on it a big penalty. it is to have a better prediction.
-the penalty is based on the cost matrix
-Suppose we believe that a loan default costs the bank four times as much as a missed opportunity. 
-Our penalty values could then be defined as:
+### DT conclusion
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-error_cost <- matrix(c(0, 1,1,1,0,1,1,1, 0), nrow = 3, dimnames = matrix_dimensions)
-
-error_cost
-```
-
-Now lets train again and see if the cost matrix made any difference:
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-length(error_cost)
-length(seeds_train$Type)
-
-# apply model on training data with cost matrix ==> I DONT KNOW about the error.. I need help 
-seeds_cost <- C5.0(seeds_train[-8], seeds_train$Type, costs = error_cost)
-
-# predict on test data
-seeds_cost_pred <- predict(seeds_cost, seeds_test)
-
-CrossTable(seeds_test$Type, seeds_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE)
-```
-### DT conclusions
 then we should write our conclusion about the different predictions obtained.
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
-
-
 To create our decision trees in this practice we used the C5.0 package. 
-There is another package called "party" which has the 'ctree' function which
-also generates decision trees. You can read about it here: https://ademos.people.uic.edu/Chapter24.html.
 
-## KNN Algorithm
 
+# KNN Algorithm
+
+## preproccessing
 First we will work with a new table of data. 
 Then,we will transform the values of the Type variable  to a factor variable:
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds_knn<-seeds
-seeds_knn$Type <- factor(seeds_knn$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
+```{r, message=FALSE, warning=FALSE}
+
+seeds$Type <- factor(seeds$Type, levels = c("1", "2","3"), labels = c("1", "2","3"))
 
 # percentage of each type
-round(prop.table(table(seeds_knn$Type))*100, digits = 1)
+round(prop.table(table(seeds$Type))*100, digits = 1)
+```
+### Normalization
+We'll have to normalize our data to make sure our classifier will work. 
+Lets create a simple normalization function (min/max normalization):
+
+
+```{r, message=FALSE, warning=FALSE}
+# min/max normalization function:
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# test our function
+normalize(c(1, 2, 3, 4, 5))
+normalize(c(10, 20, 30, 40, 50))
 ```
 
+Use the normalization function on our data, and make sure it worked:
+
+```{r, message=FALSE, warning=FALSE}
+seeds_norm <- as.data.frame(lapply(seeds[1:7], normalize))
+
+summary(seeds_norm$Area)
+```
 Since we want to use KNN, we have to make sure the range of values of each parameter is similar. 
 
 The next step is to create a training set and a test set, and to store the labels in a different vector to be used later. We usually want to divide our data into 80%, 20% test, but we can always try a ratio of 85-15 or even 90-10 
 and see if results improved. 
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-# create train set
-seeds_knn_train <- seeds_train
-# create test set
-seeds_knn_test <- seeds_test
+```{r, message=FALSE, warning=FALSE}
+
 # types of train set
-seeds_train_types <- seeds_knn[1:159, 8]
+
+
+samples_seed <- seeds[sample(nrow(seeds)),]
+seeds_train_types <-samples_seed[1:159, 8]
+
 # labels of test set
-seeds_test_types <- seeds_knn[160:199, 8]
+
+seeds_test_types <- samples_seed[160:199,8 ]
 ```
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-library(class) 
+Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
+
+## run the KNN algorithm
+Now, we will run the KNN algorithm and We will start with K of 12 (???), the square root of 159 and also an odd number, #reducing the chance of a tie vote.
+
+```{r, message=FALSE, warning=FALSE}
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=3)
 ```
 
-Now, we will run the KNN algorithm and We will start with K of 3, the square root of 159 and also an odd number, reducing the chance of a tie vote.
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds_test_pred <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=3)
-
-```
-
-So, how well did we do? Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-library(gmodels)
+```{r, message=FALSE, warning=FALSE}
+# it is not running
 CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
 ```
-??? I did not understand this table where is the error????
 
-In the above table we see that all of the benign were predicted correctly, and 36 out of the 39 malignant 
-were too. 3 malignant labels were mistaken for being benign.
+
+```{r, message=FALSE, warning=FALSE}
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=9)
+```
+
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+
+```{r, message=FALSE, warning=FALSE}
+# it is not running
+CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+seeds_test_pred <- knn(train = seeds_train, test = seeds_test, cl = seeds_train_types, k=18)
+```
+
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package we'll load: 
+
+```{r, message=FALSE, warning=FALSE}
+# it is not running
+CrossTable(x = seeds_test_types, y = seeds_test_pred, prop.chisq=FALSE)
+```
+
 
 Lets see if we can improve our results. First, lets try z-score standardization instead of normalization:
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 # z-score normalization
-seeds_z <- as.data.frame(scale(seeds_knn[-8]))
+seeds_z <- as.data.frame(scale(samples_seed[-8]))
 
 summary(seeds_z$Area)
 ```
@@ -325,27 +271,15 @@ summary(seeds_z$Area)
 We'll quickly repeat the previous steps (divide the data into train and test, classify, and compare the results to the true values):
 
 
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds_train_z <- seeds_z[1:159, ]
+```{r, message=FALSE, warning=FALSE}
+seeds_train_z <- seeds_z[1:159, ] 
 seeds_test_z <- seeds_z[160:199, ]
-seeds_train_types_z <- seeds_knn[1:159,8]
-seeds_test_types_z <- seeds_knn[160:199, 8]
+seeds_train_types_z <- samples_seed[1:159,8]
+seeds_test_types_z <- samples_seed[160:199, 8]
 seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_types_z, k=3)
 CrossTable(x = seeds_test_types_z, y = seeds_test_pred_z, prop.chisq=FALSE)
 ```
 
-It seems to be worth, the model predicted only 2 types on 3. What about a different value of K?
-
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-seeds_test_pred_k8 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=8)
-seeds_test_pred_k15 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=15)
-seeds_test_pred_k1 <- knn(train = seeds_knn_train, test = seeds_knn_test, cl = seeds_train_types, k=1)
-
-CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k8, prop.chisq=FALSE)
-CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k15, prop.chisq=FALSE)
-CrossTable(x = seeds_test_types_z, y = seeds_test_pred_k1, prop.chisq=FALSE)
-
-
-```
-### KNN conclusions
+It seems to be better, the model predicted  . 
+## KNN conclusions
 # total conclusions
