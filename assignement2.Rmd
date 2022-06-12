@@ -226,4 +226,6 @@ CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FAL
 ```
 We managed to improve the true positive of type three to 100%! We have only one mistake left (a type two seed that was predicted as type 1).
 ## KNN conclusions
+We managed to classify our data using the KNN algorithm. We saw that the best results were with K=9 and without the "Kernel.Length" column, and we managed to classify correctly all seeds except for one.
+
 # total conclusions
