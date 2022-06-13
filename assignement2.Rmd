@@ -26,6 +26,7 @@ library(class)
 library(tidymodels) # for the rsample package, along with the rest of tidymodels
 library(modeldata)  # for the cells data
 library(vip)        # for variable importance plots
+library(pROC)
 
 seeds <- read.csv("seeds.csv")# read data
 set.seed(1234)#to initialize a pseudo random number generator. 
@@ -244,11 +245,9 @@ The changes can either be random (guessing) or more precise, depending on perfor
 Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the cell_train partition of our data:
 
 ```{r}
-library(ROCR)
-
 
 # Predict probability values using the model: all_probs
-all_probs_DT <- predict(seeds_model_DT,test,type="prob")
+all_probs_DT <- predict(seeds_model,seeds_test,type="prob")
 
 # Print out all_probs
 all_probs_DT
@@ -256,8 +255,7 @@ all_probs_DT
 # Select second column of all_probs: probs
 probs_DT <- all_probs_DT[,2]
 
-# Load the ROCR library
-library(ROCR)
+
 
 # Make a prediction object: pred
 pred_DT <- prediction(probs_DT,seeds_test$Types)
