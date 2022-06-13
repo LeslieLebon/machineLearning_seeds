@@ -23,6 +23,9 @@ Our objective was to analyze the “wheat-seeds” dataset (where the 'Type' of 
 library(gmodels)
 library(C50)
 library(class) 
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(modeldata)  # for the cells data
+library(vip)        # for variable importance plots
 
 seeds <- read.csv("seeds.csv")# read data
 set.seed(1234)#to initialize a pseudo random number generator. 
@@ -30,7 +33,7 @@ set.seed(1234)#to initialize a pseudo random number generator.
 
 ## initial look at the data
 
-We know the class ‘type’ is the column (label) to classify according to. we took a quick look at the data:
+We know the class ‘type’ is the column (label) to classify according to. We took a quick look at the data:
 ```{r, message=FALSE, warning=FALSE}
 str(seeds)
 ```
@@ -71,7 +74,7 @@ prop.table(table(seeds_test$Type))
 
 ### target factor (label) vector for classification
 # Decision tree
-A Decision Tree uses a series of questions that lead to a decision- a class. The goal is to improve purity, to try and have a higher and higher percentage of items in the node are similar, until all items in a node belong to the same class. It does so by taking the items in a node and splitting them in such a manner that they become two groups with improved purity in each (more samples in the group belong to the same class). 
+A Decision Tree uses a serie of questions that lead to a decision- a class. The goal is to improve purity, to try and have a higher and higher percentage of items in the node are similar, until all items in a node belong to the same class. It does so by taking the items in a node and splitting them in such a manner that they become two groups with improved purity in each (more samples in the group belong to the same class). 
 
 We will use the C5.0 method.
 The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, and supply it as the target factor (label) vector for classification:
@@ -87,7 +90,7 @@ summary(seeds_model)
 
 The algorithm did six iterations. In the first iteration it divided all the seeds into two subgroups (nodes) according to whether their Groove was higher or lower than 5.533. One node was pure (all seeds in the node were Class 2), and the other node went through another iteration according to the Area, where both nodes were not pure and needed to go through another iteration. One node was split into two pure nodes-again according to Groove-which yielded 2 pure nodes (Class 3 or class 1). The other node was split according to the asymmetry coefficient which resulted in one pure node (of Class 1 ) whereas the other node went into another iteration according to the width which yielded 2 pure nodes (classes 3 and 1 ).
 
-the percentage of error is relatively low: 1.3%.
+The percentage of error is relatively low: 1.3%.
 The algorithm uses the feature that provides the most Information Gain in every split.Since it used 100.00% of the information from the Kernel.Groove column, we can assume that that column provided the most information gain (at least in the first iteration). The algorithm also used  66.04% of the Area column; 31.45% of the Asymmetry.Coeff; and 4.40%	of the Kernel.Width column, so that also gives us some information about how much these features influenced the Information Gain function.
 
 After teaching the model on the training set, we want to use it to predict the class is on the test set, and then compare the test set to what we predicted for the test said using our predictive model.
@@ -143,7 +146,7 @@ With 10 trials, we obtained the best result. Indeed, choosing 20 trials in the b
 
 ### DT conclusion
 
-then we should write our conclusion about the different predictions obtained.
+Then we should write our conclusion about the different predictions obtained.
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
 To create our decision trees in this practice we used the C5.0 package. 
 
@@ -228,4 +231,96 @@ We managed to improve the true positive of type three to 100%! We have only one 
 ## KNN conclusions
 We managed to classify our data using the KNN algorithm. We saw that the best results were with K=9 and without the "Kernel.Length" column, and we managed to classify correctly all seeds except for one.
 
+# Evaluation of our models
+Now, we wnat to evaluate our models.
+
+
+
+## Estimating performance
+
+Next we want to see if we can improve our model. We do this by changing some things about it. 
+The changes can either be random (guessing) or more precise, depending on performance metrics. We will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
+
+Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the cell_train partition of our data:
+
+```{r}
+library(ROCR)
+
+
+# Predict probability values using the model: all_probs
+all_probs_DT <- predict(seeds_model_DT,test,type="prob")
+
+# Print out all_probs
+all_probs_DT
+
+# Select second column of all_probs: probs
+probs_DT <- all_probs_DT[,2]
+
+# Load the ROCR library
+library(ROCR)
+
+# Make a prediction object: pred
+pred_DT <- prediction(probs_DT,seeds_test$Types)
+
+# Make a performance object: perf
+perf_DT <- performance(pred_DT,"tpr","fpr")
+
+# Plot this curve
+plot(perf_DT)
+```
+we will obtain a curve to interpret.
+
+We will do the same with KNN
+```{r}
+
+# Predict probability values using the model: all_probs
+all_probs_KNN <- predict(seeds_test_pred,test,type="prob")
+
+# Print out all_probs
+all_probs_KNN
+
+# Select second column of all_probs: probs
+probs_KNN<- all_probs_KNN[,2]
+
+
+
+# Make a prediction object: pred
+pred_KNN <- prediction(probs_KNN,seeds_test$Types)
+
+# Make a performance object: perf
+perf_KNN <- performance(pred_KNN,"tpr","fpr")
+
+# Plot this curve
+plot(perf_KNN)
+```
+It will give us another curve but for KNN
+And then we compare the 2 performances
+
+```{r}
+# Make the prediction objects for both models: pred_t, pred_k
+# probs_t is the result of positive prediction of Decision Tree Model 
+# probs_k is the result of positive prediction of K-Nearest Neighbor
+pred_t <- prediction(probs_DT, seeds_test$Types)
+pred_k <- prediction(probs_KNN, seeds_test$Types)
+
+# Make the performance objects for both models: perf_t, perf_k
+perf_t <- performance(pred_DT,"tpr","fpr")
+perf_k <- performance(pred_KNN,"tpr","fpr")
+
+# Draw the ROC lines using draw_roc_lines()
+draw_roc_lines(perf_DT,perf_KNN)
+```
+It will give 2 curves one for KNN and one for DT.
+```{r}
+# Make the performance object of pred_t and pred_k: auc_t and auc_k
+auc_t <- performance(pred_DT,"auc")
+auc_k <- performance(pred_KNN,"auc")
+
+# Print the AUC value
+auc_t@y.values[[1]] # AUC result is 
+auc_k@y.values[[1]] # AUC result is 
+```
+and then we can compare the 2 values obtained and decide which algorithm is the best to predict the seed types.
+
 # total conclusions
+
