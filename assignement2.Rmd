@@ -3,17 +3,19 @@ title: "assignement2"
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
 output: 
-  pdf_document: 
-    toc_depth: 4
   word_document: 
     toc: yes
     toc_depth: 4
     fig_caption: yes
+  pdf_document: 
+    toc_depth: 4
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_Type: inline
 ---
 
-Our objective was to analyze the “wheat-seeds” dataset (where the 'Type' of the seed is the column used for labeling and classifying) using two classifier models that we built. We decided on using the KNN algorithm and the decision tree (DT) algorithm.
+Our whole project and code can be found on github at https://github.com/LeslieLebon/assignment-2.git
+
+Our objective in this project was to analyze the “wheat-seeds” dataset (where the 'Type' of the seed is the column used for labeling and classifying) using two classifier models that we built. We decided on using the KNN algorithm and the Decision Tree (DT) algorithm.
 
 # preproccessing
 
@@ -23,6 +25,8 @@ Our objective was to analyze the “wheat-seeds” dataset (where the 'Type' of 
 library(gmodels)
 library(C50)
 library(class) 
+library(rpart)
+library(rpart.plot)
 library(tidymodels) # for the rsample package, along with the rest of tidymodels
 library(modeldata)  # for the cells data
 library(vip)        # for variable importance plots
@@ -34,13 +38,13 @@ set.seed(1234)#to initialize a pseudo random number generator.
 
 ## initial look at the data
 
-We know the class ‘type’ is the column (label) to classify according to. We took a quick look at the data:
+We know the class ‘Type’ is the column (label) to classify according to. We took a quick look at the data:
 ```{r, message=FALSE, warning=FALSE}
 str(seeds)
 ```
-There are 3 types of seeds (in the column 'Type'): 1, 2 and 3.
+There are 3 Types of seeds (in the column 'Type'): 1, 2 and 3.
 
-Since the whole table is sorted according to the' type' column, and we want to work randomly, we will shuffle the whole table
+Since the whole table is sorted according to the' Type' column, and we want to work randomly, we will shuffle the whole table
 
 ```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 seeds <- seeds[sample(nrow(seeds)),]
@@ -50,7 +54,7 @@ In order to further understand the data and be able to work with it we used the 
 ```{r, message=FALSE, warning=FALSE}
 table(seeds$Type)
 ```
-We can see the Type has 66 times type 1, 68 times type 2, and 65 times type 3, about a third of each type.
+We can see the Type has 66 times Type 1, 68 times Type 2, and 65 times Type 3, about a third of each Type.
 
 Before starting on teaching the algorithm, we converted the 'Type' column to a factor, as that is what is required by the C50 package.
 ```{r, message=FALSE, warning=FALSE}
@@ -66,7 +70,7 @@ seeds_test <- seeds[(length_of_training_set+1):nrow(seeds), ]
 seeds_train_labels <-seeds_train[, 8]
 seeds_test_labels <-seeds_test[, 8]
 ```
-Since we know that there are about a third of each type in the data set, we want to be sure that the distribution is as we defined (about 1/3 of each type in of both training and test sets):
+Since we know that there are about a third of each Type in the data set, we want to be sure that the distribution is as we defined (about 1/3 of each Type in of both training and test sets):
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 prop.table(table(seeds_train$Type))
@@ -74,111 +78,120 @@ prop.table(table(seeds_test$Type))
 ```
 
 ### target factor (label) vector for classification
-# Decision tree
+# Decision Tree
 A Decision Tree uses a serie of questions that lead to a decision- a class. The goal is to improve purity, to try and have a higher and higher percentage of items in the node are similar, until all items in a node belong to the same class. It does so by taking the items in a node and splitting them in such a manner that they become two groups with improved purity in each (more samples in the group belong to the same class). 
 
 We will use the C5.0 method.
-The 8th column of the dataset is the type class variable, so we need to exclude it from the training data frame, and supply it as the target factor (label) vector for classification:
+The 8th column of the dataset is the Type class variable, so we need to exclude it from the training data frame, and supply it as the target factor (label) vector for classification:
 ```{r, message=FALSE, warning=FALSE}
-seeds_model <- C5.0(seeds_train[-8], seeds_train$Type)
+DT_model <- C5.0(seeds_train[-8], seeds_train$Type)
+plot(DT_model)
 ```
-
 ### Explanation of initial tree:
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-#summary of the model to understand it
-summary(seeds_model)
+```{r, message=FALSE, warning=FALSE, results=FALSE}
+summary(DT_model)
 ```
-
 The algorithm did six iterations. In the first iteration it divided all the seeds into two subgroups (nodes) according to whether their Groove was higher or lower than 5.533. One node was pure (all seeds in the node were Class 2), and the other node went through another iteration according to the Area, where both nodes were not pure and needed to go through another iteration. One node was split into two pure nodes-again according to Groove-which yielded 2 pure nodes (Class 3 or class 1). The other node was split according to the asymmetry coefficient which resulted in one pure node (of Class 1 ) whereas the other node went into another iteration according to the width which yielded 2 pure nodes (classes 3 and 1 ).
 
-The percentage of error is relatively low: 1.3%.
-The algorithm uses the feature that provides the most Information Gain in every split.Since it used 100.00% of the information from the Kernel.Groove column, we can assume that that column provided the most information gain (at least in the first iteration). The algorithm also used  66.04% of the Area column; 31.45% of the Asymmetry.Coeff; and 4.40%	of the Kernel.Width column, so that also gives us some information about how much these features influenced the Information Gain function.
+The classifier made 3 mistake for an error rate of 1.9%, which is relatively low.
 
 After teaching the model on the training set, we want to use it to predict the class is on the test set, and then compare the test set to what we predicted for the test said using our predictive model.
 
 ```{r, message=FALSE, warning=FALSE}
-# apply model on test data
-seeds_pred <- predict(seeds_model, seeds_test)
-CrossTable(seeds_test$Type, seeds_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual type', 'predicted type'))
+DT_pred <- predict(DT_model, seeds_test)
+DT_table_mat<-CrossTable(seeds_test$Type, DT_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual Type', 'predicted Type'))
 ```
-Type seeds 2 and 3 both have no false positives (all predictions of type two or three were actually typed two or 3) with a few false negatives (one type 2 and 2 type 3s that were predicted as type one). Type 1 on the other hand has no false negative (all type 1 seeds were predicted as type 1) but it had a few false positives (as mentioned before- one that was actually type 2 and two were actually type 3).
+Type seeds 2 and 3 both have no false positives (all predictions of Type 2 or three were actually Types 2 or 3) with a few false negatives (one Type 2 and 2 Type 3s that were predicted as Type one). Type 1 on the other hand has no false negative (all Type 1 seeds were predicted as Type 1) but it had a few false positives (as mentioned before- one that was actually Type 2 and two were actually Type 3).
 
-We will try to improve our results, using adaptive boosting to have a lower percentage of error. This is a process in which many decision trees are built and the trees vote on the best class for each example.
+We computed the accuracy test from the confusion matrix (the proportion of true positive and true negative over the sum of the matrix).
+```{r, message=FALSE, warning=FALSE}
+DT_accuracy_Test <- sum(diag(DT_table_mat[["t"]])) / sum(DT_table_mat[["t"]])
+```
+Accuracy of 92.5% is pretty good, but we will try to improve our results using adaptive boosting (a process in which many Decision Trees are built and the trees vote on the best class for each example).
 
 ## Adaptive Boosting
+### 10 trials
 We'll start with 10 trials, a number that has become the de facto standard, as research suggests that this reduces error rates on test data by about 25 percent:
-
-```{r, results=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+```{r, results=FALSE, message=FALSE, warning=FALSE}
 # boosting with 10 trials (on training)
-seeds_boost10 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 10)
-summary(seeds_boost10 )
+DT_boost10 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 10)
+summary(DT_boost10 )
 ```
-
-The classifier made 1 mistake for an error rate of
-0.6% percent. This is an improvement over the previous training error rate
-before adding boosting! However, it remains to be seen whether we see
-a similar improvement on the test data. Let's take a look:
-
 ```{r, message=FALSE, warning=FALSE}
-# boosting on test data
-seeds_boost_pred10 <- predict(seeds_boost10, seeds_test)
-
-CrossTable(seeds_test$Type, seeds_boost_pred10,
+DT_boost10[["boostResults"]]
+```
+The classifier made 1 mistake for an error rate of 0.6% percent. This is an improvement over the previous training error rate. However, it remains to be seen whether we see
+a similar improvement on the test data. Let's take a look at how good the prediction is:
+```{r, message=FALSE, warning=FALSE}
+DT_boost_pred10 <- predict(DT_boost10, seeds_test)
+DT_table_mat_10<-CrossTable(seeds_test$Type, DT_boost_pred10,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual Type', 'predicted Type'))
+DT_accuracy_Test10 <- sum(diag(DT_table_mat_10[["t"]])) / sum(DT_table_mat_10[["t"]])
 ```
-
-The model made 2 errors instead of 3 before the boost, on seeds of type 1.
-WE will try to improve the result, with more trials than 10, for example 15.
-
+The accuracy improved from 92.5% to 95%: it made 1 false negative (predicted Type 1) in Type 3 instead of 2 (which also lowered the false positive of Type 1 to 2 instead of 3) before the boost.
+### 20 trials
+WE will try to improve the result, with more trials than 10, for example 20.
 ```{r, message=FALSE, warning=FALSE, results=FALSE}
-# boosting with 20 trials (on training)
-seeds_boost20 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 20)
-summary(seeds_boost20 )
-
-# boosting on test data
-seeds_boost_pred20 <- predict(seeds_boost20, seeds_test)
-CrossTable(seeds_test$Type, seeds_boost_pred20,
+DT_boost20 <- C5.0(seeds_train[-8], seeds_train$Type, trials = 20)
+summary(DT_boost20 )
+```
+```{r, message=FALSE, warning=FALSE}
+DT_boost20[["boostResults"]]
+```
+The classifier with 20 trials made 0 mistake for an error rate of 0.0% percent(!).
+```{r, message=FALSE, warning=FALSE}
+DT_boost_pred20 <- predict(DT_boost20, seeds_test)
+DT_table_mat_20<-CrossTable(seeds_test$Type, DT_boost_pred20,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual Type', 'predicted Type'))
-
+DT_accuracy_Test20 <- sum(diag(DT_table_mat_20[["t"]])) / sum(DT_table_mat_20[["t"]])
 ```
-With 10 trials, we obtained the best result. Indeed, choosing 20 trials in the boost does not improve the result. The error rate stay similar than with 10 trials.
+```{r, message=FALSE, warning=FALSE}
+print(paste('Accuracy for prediction with boosting of 20 is:', DT_accuracy_Test10))
+```
+The training was better, but the accuracy stayed exactly the same (95%)
+Indeed, choosing 20 trials in the boost does not improve the result. The error rate stay similar than with 10 trials, so there is no reason to do 20 trials.
 
 ### DT conclusion
 
-Then we should write our conclusion about the different predictions obtained.
-Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of defaults correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the expense of increasing false positives may be acceptable if our cost estimates were accurate.
-To create our decision trees in this practice we used the C5.0 package. 
+The Decision Tree algorithm gave us accuracy of 92.5% to 95% .we increased the accuracy by boosting it with 10 or 20 trials. Our dataset is relatively small so we didn't see a change in accuracy between 10 trials and 20 trials, but because the error rate in the 20 trial run managed to get to 0% as opposed to 0.6%, we assume that with a bigger dataset there will be a bigger difference between the amount of runs but in our case there is no difference so 10 trials is enough.
 
+In addition to the classification itself, we were able to look at the process and the tree itself and learn some information about our data.
+
+These is the attribute usages :
+
+	feature        first run   10 trials  20 trials
+	Kernel.Groove    100.00%   100.00%    100.00%	
+	Area             66.04%	   66.04%     100.00%
+	Asymmetry.Coeff  31.45%    100.00%    100.00%
+	Kernel.Width     4.40%     100.00%    100.00%
+	Perimeter        0.00%     100.00%    100.00%
+	Compactness      0.00%     0.00%      27.67%
+	Kernel.Length    0.00%     0.00%      18.87%
+
+ The algorithm uses the feature that provides the most Information Gain in every split. Since it used 100.00% of the information from the Kernel.Groove column in all runs, we can assume that that column provided the most information gain (at least in the first iteration). The algorithm also used the Area column, the Asymmetry.Coeff and the Kernel.Width columns in all 3 runs, so that also gives us some information about how much these features influenced the Information Gain function.
 
 # KNN Algorithm
 In the KNN Algorithm, k is a user-defined constant, and an unlabeled vector (a query or test point) is classified by assigning the label which is most frequent among the k training samples nearest to that query point.
 ## Normalization
-In order to compare the distances of different features with different scales, we made sure the range of values of each parameter is similar by using a simple normalization function (min/max normalization):
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-# min/max normalization function:
+In order to compare the distances of different features with different scales, we made sure the range of values of each parameter is similar by using a simple normalization function (min/max normalization).
+```{r, results='hide', message=FALSE, warning=FALSE}
 normalize <- function(x) {
 return ((x - min(x)) / (max(x) - min(x)))
-}
-```
-and to test our function:
-```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-normalize(c(1, 2, 3, 4, 5))
-normalize(c(10, 20, 30, 40, 50))
+  }
+normalize(c(1, 2, 3, 4, 5)) # test our function 1
+normalize(c(10, 20, 30, 40, 50)) # test our function 2
 ```
 
-We used the normalization function on our training and test sets, and made sure it worked:
+We used the normalization function on our training and test sets, and looked at it to make sure it worked:
 ```{r, message=FALSE, warning=FALSE}
 normalized_seeds_train <- as.data.frame(lapply(seeds_train[1:7], normalize))
 normalized_seeds_test <- as.data.frame(lapply(seeds_test[1:7], normalize))
 summary(normalized_seeds_train$Area)
-summary(normalized_seeds_test$Area)
 ```
 
 ## run the KNN algorithm
-Now, we will run the KNN algorithm and We will start with K of 3, because we have 3 types of seeds
-
 And finally, we are ready to run our algorithm. We'll start with K of 21, the square root of 455 and also an odd number, reducing the change of a tie vote.
 ```{r, message=FALSE, warning=FALSE}
 seeds_test_pred <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=21)
@@ -187,11 +200,11 @@ seeds_test_pred <- knn(train = normalized_seeds_train, test = normalized_seeds_t
  Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package loaded: 
 
 ```{r, message=FALSE, warning=FALSE}
-# it is not running
-CrossTable(x = seeds_test_labels, y = seeds_test_pred, prop.chisq=FALSE)
+knn_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred, prop.chisq=FALSE)
+knn21_accuracy_Test <- sum(diag(knn_table_mat[["t"]])) / sum(knn_table_mat[["t"]])
 ```
-In the above table we see that all 17 seeds(100%) of type 1 were predicted correctly, but it has a few false positives (3 seeds that were wrongly predicted as Type one: one seed was actually type 2 and 2 were type 3).
-on the other hand- types two and three which had no false positives (all seeds that were predicted as two or three were actually two or 3 respectively) and only a few false negatives (14/15 type 2 seeds (93.3%) and 6/8 type 3 seeds (75%) were identified correctly). 
+In the above table we see that all 17 seeds(100%) of Type 1 were predicted correctly, but it has a few false positives (3 seeds that were wrongly predicted as Type one: one seed was actually Type 2 and 2 were Type 3).
+on the other hand- Types two and three which had no false positives (all seeds that were predicted as two or three were actually two or 3 respectively) and only a few false negatives (14/15 Type 2 seeds (93.3%) and 6/8 Type 3 seeds (75%) were identified correctly). 
 these are really good results!!
 Lets see if we can improve our results. First, lets try z-score standardization instead of normalization:
 
@@ -199,126 +212,62 @@ Lets see if we can improve our results. First, lets try z-score standardization 
 seeds_train_z <- as.data.frame(scale(seeds_train[1:7]))
 seeds_test_z <- as.data.frame(scale(seeds_test[1:7]))
 seeds_test_pred_z <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=3)
-CrossTable(x = seeds_test_labels, y = seeds_test_pred_z, prop.chisq=FALSE)
+knn_z_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred_z, prop.chisq=FALSE)
+knnz_accuracy_Test <- sum(diag(knn_z_table_mat[["t"]])) / sum(knn_z_table_mat[["t"]])
+
 ```
 Not much of an improvement, maybe even worse.
-We tried several more times with different K's:
-```{r, message=FALSE, warning=FALSE, results=FALSE}
+We tried several more times with different K's (3, 9 and 15)
+```{r, message=FALSE, warning=FALSE, results=FALSE, echo=FALSE}
 seeds_test_pred_k3 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=3)
-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k3, prop.chisq=FALSE)
+knn_3_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k3, prop.chisq=FALSE)
+knn3_accuracy_Test <- sum(diag(knn_3_table_mat[["t"]])) / sum(knn_3_table_mat[["t"]])
 
 seeds_test_pred_k9 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=9)
-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k9, prop.chisq=FALSE)
+knn_9_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k9, prop.chisq=FALSE)
+knn9_accuracy_Test <- sum(diag(knn_9_table_mat[["t"]])) / sum(knn_9_table_mat[["t"]])
 
 seeds_test_pred_k15 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=15)
-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k15, prop.chisq=FALSE)
+knn_15_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k15, prop.chisq=FALSE)
+knn15_accuracy_Test <- sum(diag(knn_15_table_mat[["t"]])) / sum(knn_15_table_mat[["t"]])
 
 seeds_test_pred_k21 <- knn(train = normalized_seeds_train, test = normalized_seeds_test, cl = seeds_train_labels, k=21)
-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k21, prop.chisq=FALSE)
+knn_21_table_mat<-CrossTable(x = seeds_test_labels, y = seeds_test_pred_k21, prop.chisq=FALSE)
+knn21_accuracy_Test <- sum(diag(knn_21_table_mat[["t"]])) / sum(knn_21_table_mat[["t"]])
+
 ```
 
- It looks like the results are exactly the same, except for K = 9 we got 7/8 type 3 seeds (87.5%) that were predicted correctly and only once predicted falsely as one (which improved both the true positive on type 3 and the false negative on type one).
+ It looks like the results are exactly the same (accuracy went of 92.5% ), except for K = 9 we got 7/8 Type 3 seeds (87.5%) that were predicted correctly and only once predicted falsely as one (which improved both the true positive on Type 3 and the false negative on Type one) so that our accuracy went up from 92.5%  to 95%.
 
 ### feature selection
 The DT algorithm uses the feature that provides the most Information Gain in every split. Using that logic, the feature that is used the least provides the least information gain, and if it doesn't add much information it might disturb as noise. Thus, since we know that the accuracy of the k-NN algorithm can be severely degraded by the presence of noisy or irrelevant features, we tried the KNN algorithm once more, with K=9 and without the "Kernel.Length" column (which attributed the least to the building of the DT). 
-```{r, message=FALSE, warning=FALSE}
-# z-score normalization
+```{r, message=FALSE, warning=FALSE, results=FALSE}
 feature_selected_train <- seeds_train[-4]
 feature_selected_test <- seeds_test[-4]
 feature_selected_test_pred <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=9)
-CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FALSE)
+knn_9_no4_table_mat<-CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FALSE)
+knn9_no4_accuracy_Test <- sum(diag(knn_9_no4_table_mat[["t"]])) / sum(knn_9_no4_table_mat[["t"]])
 ```
-We managed to improve the true positive of type three to 100%! We have only one mistake left (a type two seed that was predicted as type 1).
+We managed to improve the true positive of Type three to 100%! We have only one mistake left (a Type two seed that was predicted as Type 1) with accuracy of 97.5%.
+We tried again without Compactness and again without both Compactness and Kernel.Length, and we still got to 97.5% accuracy
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+#no Compactness
+feature_selected_train <- seeds_train[-3]
+feature_selected_test <- seeds_test[-3]
+feature_selected_test_pred <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=9)
+knn_9_no3_table_mat<-CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FALSE)
+knn9_no3_accuracy_Test <- sum(diag(knn_9_no3_table_mat[["t"]])) / sum(knn_9_no3_table_mat[["t"]])
+feature_selected_train <- feature_selected_train[-3]
+
+#no Compactness and no Kernel.Length
+feature_selected_test <- feature_selected_test[-3]
+feature_selected_test_pred <- knn(train = seeds_train_z, test = seeds_test_z, cl = seeds_train_labels, k=9)
+knn_9_no3_no4_table_mat<-CrossTable(x = seeds_test_labels, y = feature_selected_test_pred, prop.chisq=FALSE)
+knn9_no3_no4_accuracy_Test <- sum(diag(knn_9_no3_no4_table_mat[["t"]])) / sum(knn_9_no3_no4_table_mat[["t"]])
+```
+
 ## KNN conclusions
-We managed to classify our data using the KNN algorithm. We saw that the best results were with K=9 and without the "Kernel.Length" column, and we managed to classify correctly all seeds except for one.
-
-# Evaluation of our models
-Now, we wnat to evaluate our models.
-
-
-
-## Estimating performance
-
-Next we want to see if we can improve our model. We do this by changing some things about it. 
-The changes can either be random (guessing) or more precise, depending on performance metrics. We will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
-
-Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the cell_train partition of our data:
-
-```{r}
-
-# Predict probability values using the model: all_probs
-all_probs_DT <- predict(seeds_model,seeds_test,type="prob")
-
-# Print out all_probs
-all_probs_DT
-
-# Select second column of all_probs: probs
-probs_DT <- all_probs_DT[,2]
-
-
-
-# Make a prediction object: pred
-pred_DT <- prediction(probs_DT,seeds_test$Types)
-
-# Make a performance object: perf
-perf_DT <- performance(pred_DT,"tpr","fpr")
-
-# Plot this curve
-plot(perf_DT)
-```
-we will obtain a curve to interpret.
-
-We will do the same with KNN
-```{r}
-
-# Predict probability values using the model: all_probs
-all_probs_KNN <- predict(seeds_test_pred,test,type="prob")
-
-# Print out all_probs
-all_probs_KNN
-
-# Select second column of all_probs: probs
-probs_KNN<- all_probs_KNN[,2]
-
-
-
-# Make a prediction object: pred
-pred_KNN <- prediction(probs_KNN,seeds_test$Types)
-
-# Make a performance object: perf
-perf_KNN <- performance(pred_KNN,"tpr","fpr")
-
-# Plot this curve
-plot(perf_KNN)
-```
-It will give us another curve but for KNN
-And then we compare the 2 performances
-
-```{r}
-# Make the prediction objects for both models: pred_t, pred_k
-# probs_t is the result of positive prediction of Decision Tree Model 
-# probs_k is the result of positive prediction of K-Nearest Neighbor
-pred_t <- prediction(probs_DT, seeds_test$Types)
-pred_k <- prediction(probs_KNN, seeds_test$Types)
-
-# Make the performance objects for both models: perf_t, perf_k
-perf_t <- performance(pred_DT,"tpr","fpr")
-perf_k <- performance(pred_KNN,"tpr","fpr")
-
-# Draw the ROC lines using draw_roc_lines()
-draw_roc_lines(perf_DT,perf_KNN)
-```
-It will give 2 curves one for KNN and one for DT.
-```{r}
-# Make the performance object of pred_t and pred_k: auc_t and auc_k
-auc_t <- performance(pred_DT,"auc")
-auc_k <- performance(pred_KNN,"auc")
-
-# Print the AUC value
-auc_t@y.values[[1]] # AUC result is 
-auc_k@y.values[[1]] # AUC result is 
-```
-and then we can compare the 2 values obtained and decide which algorithm is the best to predict the seed types.
+We managed to classify our data using the KNN algorithm. We saw that the best results were with K=9 and without the "Kernel.Length" (or "Compactness") column, and we managed to classify correctly all seeds except for one.
 
 # total conclusions
-
+By using boosting we increased our accuracy to 95% in the Decision Tree algorithm. We ran the KNN algorithm four times, and found that we get the best results using K = 9. Using the information from the Decision Tree algorithm we managed to increase the accuracy of our KNN algorithm.
