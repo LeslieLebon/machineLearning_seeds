@@ -3,12 +3,12 @@ title: "assignement2"
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
 output: 
+  pdf_document: 
+    toc_depth: 4
   word_document: 
     toc: yes
     toc_depth: 4
     fig_caption: yes
-  pdf_document: 
-    toc_depth: 4
 editor_options: 
   chunk_output_Type: inline
 ---
@@ -130,6 +130,7 @@ dnn = c('actual Type', 'predicted Type'))
 DT_accuracy_Test10 <- sum(diag(DT_table_mat_10[["t"]])) / sum(DT_table_mat_10[["t"]])
 ```
 The accuracy improved from 92.5% to 95%: it made 1 false negative (predicted Type 1) in Type 3 instead of 2 (which also lowered the false positive of Type 1 to 2 instead of 3) before the boost.
+
 ### 20 trials
 WE will try to improve the result, with more trials than 10, for example 20.
 ```{r, message=FALSE, warning=FALSE, results=FALSE}
